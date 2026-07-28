@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fundamentals of Performance</title>
+    <style>
+        :root {
+            --sidebar-bg: #0f172a;
+            --sidebar-hover: #1e293b;
+            --sidebar-text: #94a3b8;
+            --sidebar-text-hover: #f8fafc;
+            --bg-color: #f1f5f9;
+            --card-bg: #ffffff;
+            --text-main: #334155;
+            --heading-color: #0f172a;
+            --primary-accent: #2563eb;
+            --code-bg: #1e293b;
+            --code-text: #e2e8f0;
+            --inline-code-bg: #e2e8f0;
+            --inline-code-text: #b91c1c;
+            --border-color: #e2e8f0;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            line-height: 1.7;
+        }
+
+        /* Sidebar Navigation */
+        .sidebar {
+            width: 280px;
+            height: 100vh;
+            background-color: var(--sidebar-bg);
+            position: fixed;
+            top: 0;
+            left: 0;
+            overflow-y: auto;
+            padding: 2rem 1rem;
+            box-sizing: border-box;
+            border-right: 1px solid #1e293b;
+        }
+
+        .sidebar h2 {
+            color: #ffffff;
+            font-size: 1.2rem;
+            margin-bottom: 1.5rem;
+            padding-left: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .sidebar ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .sidebar li {
+            margin-bottom: 0.5rem;
+        }
+
+        .sidebar a {
+            display: block;
+            padding: 0.75rem 1rem;
+            color: var(--sidebar-text);
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .sidebar a:hover {
+            background-color: var(--sidebar-hover);
+            color: var(--sidebar-text-hover);
+            padding-left: 1.25rem;
+        }
+
+        /* Main Content Area */
+        .content-wrapper {
+            margin-left: 280px;
+            padding: 3rem 5%;
+            width: calc(100% - 280px);
+            box-sizing: border-box;
+        }
+
+        .content {
+            background: var(--card-bg);
+            padding: 3rem 4rem;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        /* Typography */
+        h1, h2, h3, h4 {
+            color: var(--heading-color);
+            margin-top: 2.5rem;
+            margin-bottom: 1rem;
+            font-weight: 700;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-top: 0;
+            padding-bottom: 1rem;
+            border-bottom: 3px solid var(--primary-accent);
+        }
+
+        h2 {
+            font-size: 1.8rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-top: 1rem;
+        }
+
+        h3 {
+            font-size: 1.4rem;
+            color: var(--primary-accent);
+        }
+
+        h4 {
+            font-size: 1.1rem;
+            color: var(--heading-color);
+        }
+
+        p {
+            margin-bottom: 1.2rem;
+        }
+
+        strong {
+            color: var(--heading-color);
+        }
+
+        /* Code Blocks */
+        pre {
+            background-color: var(--code-bg);
+            color: var(--code-text);
+            padding: 1.5rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: 'Fira Code', 'Courier New', Courier, monospace;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        code {
+            background-color: var(--inline-code-bg);
+            color: var(--inline-code-text);
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-family: 'Fira Code', 'Courier New', Courier, monospace;
+            font-size: 0.9em;
+        }
+
+        pre code {
+            background-color: transparent;
+            color: inherit;
+            padding: 0;
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 2rem 0;
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        th, td {
+            padding: 1rem;
+            text-align: left;
+            border: 1px solid var(--border-color);
+            vertical-align: top;
+        }
+
+        th {
+            background-color: #f8fafc;
+            color: var(--heading-color);
+            font-weight: 600;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f8fafc;
+        }
+
+        /* Lists */
+        ul, ol {
+            margin-bottom: 1.5rem;
+            padding-left: 2rem;
+        }
+
+        li {
+            margin-bottom: 0.5rem;
+        }
+
+        hr {
+            border: 0;
+            border-top: 1px solid var(--border-color);
+            margin: 2rem 0;
+        }
+
+        /* Callouts / Highlight Box */
+        .highlight-box {
+            background-color: #eff6ff;
+            border-left: 4px solid var(--primary-accent);
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 900px) {
+            .sidebar {
+                width: 100%;
+                height: auto;
+                position: relative;
+                padding: 1rem;
+            }
+            .content-wrapper {
+                margin-left: 0;
+                width: 100%;
+                padding: 1rem;
+            }
+            .content {
+                padding: 1.5rem;
+            }
+            h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Vertical Sidebar -->
+    <nav class="sidebar">
+        <h2>Contents</h2>
+        <ul>
+            <li><a href="#intro">Context & Scope</a></li>
+            <li><a href="#core-concept">1. Core Concept & Intuition</a></li>
+            <li><a href="#transcript-content">2. Transcript Content</a></li>
+            <li><a href="#deep-technical">3. Deep Technical Explanation</a></li>
+            <li><a href="#architecture-tradeoffs">4. Architecture Trade-offs</a></li>
+            <li><a href="#production-perspective">5. Production System Perspective</a></li>
+            <li><a href="#system-design">6. System Design Perspective</a></li>
+            <li><a href="#performance-analysis">7. Performance Analysis</a></li>
+            <li><a href="#real-world-examples">8. Real-World Architecture Examples</a></li>
+            <li><a href="#architecture-diagrams">9. Architecture Diagrams</a></li>
+            <li><a href="#interview-questions">10. Interview Questions</a></li>
+            <li><a href="#common-mistakes">11. Common Mistakes & Misconceptions</a></li>
+            <li><a href="#connections">12. Connections to Other Topics</a></li>
+        </ul>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="content-wrapper">
+        <div class="content">
+
+            <div id="intro">
+                <h1>Fundamentals of Performance</h1>
+                <h3 style="color: var(--text-main); font-weight: normal; margin-top: -10px; margin-bottom: 2rem;"><strong>Course:</strong> Developer to Architect | <strong>Module 1: Performance</strong> | <strong>Lectures 3–8</strong></h3>
+                
+                <div class="highlight-box">
+                    <p><em>(Scope note: "Serial request latency" — topic 9 — wasn't in the transcripts provided, so it isn't covered here. Send it separately and I'll append it as a continuation.)</em></p>
+                </div>
+                <hr>
+            </div>
+
+            <h2 id="core-concept">1. Core Concept & Intuition (The Elevator Pitch)</h2>
+            
+            <h3>One-Sentence Definition</h3>
+            <p>Performance is the measure of how fast a system responds to requests (latency) and how many requests it can process per unit time (throughput), under a <strong>fixed</strong> workload and a <strong>fixed</strong> hardware capacity — and every performance problem, without exception, is a queue of requests building up somewhere in the system.</p>
+
+            <h3>Why This Concept Exists</h3>
+            <p>Before you can design for performance, you need a shared vocabulary for what "slow" actually <em>means</em> mechanically — otherwise "performance" becomes a vague complaint instead of an engineering problem with a root cause.</p>
+
+            <p>The industry problem this solves: engineers historically reacted to slowness by throwing hardware at it, or by profiling code line-by-line without a mental model of <em>why</em> a system degrades. What was missing wasn't tooling — it was a causal model. If you don't know that "slow" always reduces to "a queue is forming somewhere," you can't systematically go hunt for the queue. You just guess.</p>
+
+            <p>The constraint that forced this framing: any shared resource (a CPU core, a DB connection, a network socket, a lock) can only do one thing at a time (or a bounded number of things at a time). The instant demand for that resource exceeds its service rate, a backlog forms. This is <strong>queueing theory</strong> applied informally — and it's the reason "performance engineering" is really "queue-hunting."</p>
+
+            <h3>Architecture Analogy</h3>
+            <p>Think of the whole system as a <strong>toll plaza on a highway</strong>:</p>
+            <ul>
+                <li>Each toll booth = a system resource (CPU core, DB connection, network socket).</li>
+                <li>Cars = requests.</li>
+                <li>If cars arrive faster than booths can process them, a queue forms behind the plaza — even though every individual booth is working perfectly fine and every car will <em>eventually</em> get through.</li>
+                <li>You have three levers to fix this: make each booth faster (<strong>efficiency</strong>), open more booths in parallel (<strong>concurrency/capacity</strong>), or reduce how many cars need to stop at all (<strong>caching, avoiding the resource</strong>).</li>
+            </ul>
+
+            <p>The instructor uses the same analogy explicitly: a 2-lane road vs. a 6-lane road for limited-capacity queue buildup.</p>
+
+            <h3>How a Real System Sees It</h3>
+            <p>In a production request path — say, a checkout API call — the request physically queues at multiple layers before it ever reaches "your code":</p>
+            <ul>
+                <li><strong>NIC / OS socket accept queue</strong> — if the app isn't accepting connections fast enough.</li>
+                <li><strong>Thread pool / connection pool queue</strong> — if all worker threads are busy.</li>
+                <li><strong>DB connection pool</strong> — if all DB connections are checked out.</li>
+                <li><strong>Lock wait queue</strong> — if a mutex/row-lock is held by another thread.</li>
+                <li><strong>OS run queue</strong> — if there are more runnable threads than CPU cores.</li>
+            </ul>
+
+            <p>None of these show up as a single "performance problem" in a dashboard by default — they show up as elevated <strong>latency</strong>. The architect's job is to trace elevated latency back to <em>which</em> queue is filling up.</p>
+
+            <hr>
+
+            <h2 id="transcript-content">2. Transcript Content (The "What")</h2>
+            
+            <h3>2.1 The Reference System (used for the entire performance discussion)</h3>
+<pre><code>[Browser] --&gt; [Web Application] --&gt; [Business Service] --&gt; [RDBMS Database]
+                                                                  ^
+                                                                  |
+                                          [Reporting Component] --+  (batch: reads, processes, writes back)</code></pre>
+            <ul>
+                <li>Web application: browser-facing.</li>
+                <li>Business service: could be one or many (SOA/microservices) — kept to one for simplicity in this discussion.</li>
+                <li>Database: assumed RDBMS for this discussion.</li>
+                <li>Reporting component: <strong>batch processing</strong> — reads data, processes it, writes results back (to DB or file). No "request/response" concept.</li>
+            </ul>
+
+            <h3>2.2 Definition of Performance</h3>
+            <p>Performance = how fast/responsive a system is, <strong>under a given (fixed) workload and given (fixed) hardware</strong>.</p>
+            <ul>
+                <li>Vary the workload (more data, more requests) → performance changes, but that's not what you're "measuring" — it's a different measurement.</li>
+                <li>Vary the hardware → performance changes, but again, a separate measurement.</li>
+                <li><strong>Design goal:</strong> performance should stay stable as workload increases (shouldn't collapse), and should improve when hardware capacity increases (if capacity was the bottleneck).</li>
+            </ul>
+
+            <h3>2.3 Why Performance Problems Happen — Queue Buildup</h3>
+            <ul>
+                <li>Every performance problem = <strong>a queue of requests building up somewhere</strong> (network socket, DB, OS run queue — anywhere).</li>
+                <li>Visual: a traffic jam. Vehicles = requests, blocked at a bottleneck for some reason, sitting idle.</li>
+                <li><strong>Three root causes of queue buildup:</strong>
+                    <ol>
+                        <li><strong>Inefficient/slow processing</strong> — a slow algorithm/code path slows down <em>every</em> request that passes through it.</li>
+                        <li><strong>Serial resource access</strong> — code that must run one-thread-at-a-time (e.g., debit/credit on the same bank account) forces other requests to wait even if hardware is idle.</li>
+                        <li><strong>Limited resource capacity</strong> — even with a perfectly parallelizable algorithm, a fixed number of CPUs/lanes caps how many requests move at once (2-lane vs. 6-lane road analogy).</li>
+                    </ol>
+                </li>
+                <li><strong>Architect's job:</strong> proactively find where queue buildup <em>can</em> happen and design it away; reactively, find where it <em>is</em> happening and fix it.</li>
+            </ul>
+
+            <h3>2.4 Performance Principles</h3>
+            <p>Three principles, mapped directly to the three causes of queue buildup:</p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Cause of queue buildup</th>
+                        <th>Principle to counter it</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Inefficient processing</td>
+                        <td><strong>Efficiency</strong></td>
+                    </tr>
+                    <tr>
+                        <td>Serial resource access / contention</td>
+                        <td><strong>Concurrency</strong></td>
+                    </tr>
+                    <tr>
+                        <td>Limited resource capacity</td>
+                        <td><strong>Capacity</strong></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <p><strong>Two request types are distinguished first:</strong></p>
+            <ul>
+                <li><strong>Serial/single request processing</strong> — one request at a time in the system, response returned before the next enters.</li>
+                <li><strong>Concurrent request processing</strong> — multiple requests present simultaneously (ideally processed in parallel; if some component is forced serial via locking, that's still "concurrent processing" with a serial sub-component to be discussed separately).</li>
+            </ul>
+
+            <p><strong>Efficiency</strong> (applies to a <em>single</em> request, in isolation):</p>
+            <ul>
+                <li><strong>Efficient resource utilization</strong> — IO resources (memory, network, disk) and compute (CPU) should be used efficiently. (Deep dive comes later in the course.)</li>
+                <li><strong>Efficient logic</strong> — algorithms and DB queries should do minimal work. Explicitly called out: this is a <strong>developer</strong> concern, not an architect concern, and is <em>out of scope</em> for this course.</li>
+                <li><strong>Efficient data storage</strong> — right data structures (map vs. list for search), correct DB indexing matched to query patterns.</li>
+                <li><strong>Caching</strong> — minimal code change, disproportionately large performance win. Flagged as a major topic to be covered extensively later in the course.</li>
+            </ul>
+
+            <p><strong>Concurrency</strong> (applies only once multiple requests coexist in the system):</p>
+            <ul>
+                <li>Requires hardware, OS, and code support for parallel execution.</li>
+                <li>Once a request's <em>own</em> code is efficient (handled above), the only remaining concurrency-specific problems are:
+                    <ul>
+                        <li><strong>Queuing</strong> — a request blocked not because of an external call, but because <em>other</em> requests are holding the system resources it needs.</li>
+                        <li><strong>Coherence</strong> — flagged for extensive discussion later (this is cache/data consistency across concurrent access — not detailed in these transcripts).</li>
+                    </ul>
+                </li>
+            </ul>
+
+            <p><strong>Capacity:</strong></p>
+            <ul>
+                <li>Explicitly stated to be a secondary topic for this course — "obvious" in the sense that better/more hardware helps, and it's called out wherever relevant, but it's not the focus.</li>
+                <li>The course's real focus: improving <strong>efficiency</strong> of serial requests and <strong>concurrency</strong> of simultaneous requests, assuming capacity can always be augmented as needed.</li>
+                <li>Important skill: correctly diagnosing whether a problem is <em>actually</em> a capacity problem (fix: add hardware) vs. an efficiency/concurrency problem (fix: redesign).</li>
+            </ul>
+
+            <h3>2.5 Performance Objectives</h3>
+            <p>Two objectives:</p>
+            <ol>
+                <li><strong>Minimize request/response latency.</strong></li>
+                <li><strong>Maximize throughput.</strong></li>
+            </ol>
+            <ul>
+                <li><strong>Latency</strong> = time unit measure = <strong>wait time + processing time</strong>, summed across every point in the system the request touches. Minimizing latency means minimizing <em>both</em> components.</li>
+                <li><strong>Throughput</strong> = rate measure = requests processed per unit time. Depends on <strong>latency</strong> (lower latency → more throughput) <strong>and</strong> <strong>capacity</strong> (more hardware → more throughput).</li>
+                <li><strong>Learning implication:</strong> since capacity is "add hardware as needed," the actual skill to learn is minimizing latency — that alone maximizes throughput, provided capacity is deployed adequately.</li>
+                <li><strong>Request/response vs. batch components:</strong>
+                    <ul>
+                        <li>Request/response components (web app, service, DB) → care about <strong>both</strong> latency and throughput.</li>
+                        <li>Batch components (the reporting component) → only <strong>throughput</strong> (or total batch completion time) matters. There's no per-request "response," so "request latency" doesn't apply.</li>
+                    </ul>
+                </li>
+            </ul>
+
+            <h3>2.6 Performance Measurement Metrics</h3>
+            <p>Four core metrics, per the transcript's own framing ("if you had to pick only four"):</p>
+            <ol>
+                <li><strong>Latency</strong> — directly affects user experience; goal: as low as possible.</li>
+                <li><strong>Throughput</strong> — affects how many users the system can support; goal: as high as possible, and above expected peak load.</li>
+                <li><strong>Errors</strong> — measured as % of errors; tells you functional correctness.
+                    <ul>
+                        <li><strong>Acceptable</strong> errors during a perf test: timeouts (under heavy load).</li>
+                        <li><strong>Unacceptable</strong>: functional errors — if present, your latency/throughput numbers are meaningless because the system isn't production-viable at all.</li>
+                    </ul>
+                </li>
+                <li><strong>Resource saturation</strong> — how much of available capacity is used (e.g., 100% CPU, choked network). Tells you whether to add or remove capacity. Without this metric you can't tell if hardware is over- or under-utilized.</li>
+            </ol>
+
+            <h3>2.7 Tail Latency</h3>
+            <ul>
+                <li>Average latency hides a small % of requests with <strong>much</strong> higher latency — the "tail" of the latency distribution.</li>
+                <li>Measured via <strong>percentiles</strong>: P99 (99th percentile), sometimes P99.9 for business-critical cases.</li>
+                <li>Example from transcript: if P99 = 4,000ms while most requests are much faster, then 1 in every 100 requests experiences 4,000–12,000ms latency.</li>
+                <li><strong>Why it matters beyond "some users have a bad time":</strong>
+                    <ul>
+                        <li>Tail latency is itself evidence of <strong>queuing</strong> — a subset of requests got delayed not due to their own workload, but because other requests occupied the resources they needed.</li>
+                        <li>This means tail latency is a <strong>leading indicator</strong>: if you increase the workload further, tail latency gets <em>worse</em> — more requests shift toward the high-latency end. It tells you how your system will behave <em>before</em> you actually push more load through it.</li>
+                    </ul>
+                </li>
+                <li><strong>Practical rule:</strong> never rely on average latency alone; always track P99 (and P99.9 if the business needs it).</li>
+            </ul>
+
+            <hr>
+
+            <h2 id="deep-technical">3. Deep Technical Explanation</h2>
+            
+            <h3>Why "queue buildup" is the correct universal model</h3>
+            <p>This is really applied <strong>queueing theory</strong> (M/M/1 or M/M/c queue intuition, informally): if arrival rate (λ) exceeds service rate (μ), queue length → ∞ over time; even if λ &lt; μ but close to it, queue length and wait time grow non-linearly (this is why systems don't degrade gracefully — they degrade in a <strong>hockey-stick curve</strong> as utilization approaches 100%). This is the mathematical reason "resource saturation" is a first-class metric: at, say, 70% CPU utilization, wait times are still manageable; at 95%, they explode. This non-linearity is also <em>why</em> tail latency worsens disproportionately under load — the tail is the first place queueing effects become visible, long before the average moves.</p>
+
+            <h3>Why capacity alone doesn't solve everything</h3>
+            <p>Adding capacity shifts <em>where</em> the saturation point is, but if there's a <strong>serial resource access</strong> bottleneck (e.g., a single-row lock, a single-threaded queue consumer), no amount of added capacity removes that specific bottleneck — this is essentially <strong>Amdahl's Law</strong> territory (covered later in the syllabus): the serial portion of the work caps the maximum speedup achievable from parallelism, regardless of how many CPUs you add.</p>
+
+            <h3>Why efficiency is scoped to "serial/single request" only</h3>
+            <p>The transcript's framing is precise: efficiency is about intrinsic request cost, independent of <em>anything else running concurrently</em>. Concurrency-related latency is the <em>delta</em> caused by other requests existing in the system — not the request's own logic. Separating these cleanly is what lets an architect reason about the two problems independently: you can have a perfectly efficient piece of code that still performs badly under concurrency (contention), and vice versa.</p>
+
+            <h3>Why timeouts are "acceptable" errors but functional errors are not</h3>
+            <p>This reflects a load-testing best practice: a load test's job is to find the <em>breaking point</em>, not to prove the system never breaks. Timeouts under artificially heavy load tell you <em>where</em> the ceiling is. Functional errors (wrong data, corrupted state, 500s from bugs) tell you the system is broken <em>regardless of load</em> — this invalidates the entire performance measurement because you can't trust throughput/latency numbers from a system producing incorrect results.</p>
+
+            <h3>Failure/limitation of relying on averages</h3>
+            <p>Average latency is dominated by the bulk of "easy" requests and can look excellent while a meaningful fraction of real users have a bad experience — and, per the transcript, that fraction grows as load increases. This is why SRE practice (Google's SRE book, not in the transcript but consistent with it) formalizes SLOs around P95/P99/P99.9, not averages.</p>
+
+            <hr>
+
+            <h2 id="architecture-tradeoffs">4. Architecture Trade-offs (The "Why")</h2>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>Decision</th>
+                        <th>Why choose it</th>
+                        <th>When NOT to</th>
+                        <th>Problems it introduces</th>
+                        <th>Alternative</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Optimize for <strong>average latency</strong></td>
+                        <td>Simpler to reason about, cheaper to achieve</td>
+                        <td>Whenever tail experience matters to business/SLA</td>
+                        <td>Masks real user pain for a subset of traffic</td>
+                        <td>Track and optimize P99/P99.9</td>
+                    </tr>
+                    <tr>
+                        <td>Add <strong>capacity</strong> to fix a perf issue</td>
+                        <td>Fast, no code change, works for pure resource-limited bottlenecks</td>
+                        <td>When bottleneck is serial resource access or inefficient logic</td>
+                        <td>Costs scale linearly (or worse) without fixing root cause; masks technical debt</td>
+                        <td>Fix efficiency/concurrency design first, then scale capacity</td>
+                    </tr>
+                    <tr>
+                        <td>Force <strong>serial access</strong> to a resource (e.g., strict locking for correctness)</td>
+                        <td>Needed for correctness on shared mutable state (e.g., account balance)</td>
+                        <td>When the resource isn't inherently shared/mutable, or contention is rare</td>
+                        <td>Caps maximum throughput regardless of added capacity (Amdahl's Law)</td>
+                        <td>Partition the resource so serial access is scoped narrower (per-account lock, not global lock) — covered later under partitioning</td>
+                    </tr>
+                    <tr>
+                        <td>Treat <strong>batch and request/response components identically</strong></td>
+                        <td>Simpler mental model</td>
+                        <td>Batch components have no meaningful "request latency"</td>
+                        <td>Wastes effort measuring/optimizing a metric (latency) that doesn't apply</td>
+                        <td>Measure batch throughput / total completion time only</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <hr>
+
+            <h2 id="production-perspective">5. Production System Perspective</h2>
+            
+            <ul>
+                <li><strong>Stripe</strong> (payments): a single slow DB query on the payment path doesn't just slow that request — it holds a DB connection longer, shrinking the pool available to <em>other</em> concurrent payment requests, which is exactly the "serial resource access → queue buildup" pattern described here, just at the connection-pool layer instead of a row lock.</li>
+                <li><strong>Uber</strong> (ride requests): during surge periods, request volume spikes; if driver-matching logic isn't efficient per-request, the <em>combination</em> of inefficiency + high concurrency produces exactly the tail-latency blowout the transcript describes — a small percentage of ride requests take dramatically longer during peak load, which is a direct, real-world instance of "tail latency worsens as workload increases."</li>
+                <li><strong>Netflix</strong>: batch components (nightly recommendation-model batch jobs) are measured purely on throughput/completion time, never "request latency," matching the reporting-component distinction made in the transcript.</li>
+                <li><strong>Amazon</strong> (checkout): resource saturation monitoring (CPU, DB connections) during Black Friday-scale traffic is exactly how they decide, in real time, whether to auto-scale (add capacity) vs. flag a code-level bottleneck that scaling won't fix.</li>
+            </ul>
+
+            <hr>
+
+            <h2 id="system-design">6. System Design Perspective</h2>
+            
+            <ul>
+                <li><strong>Scalability</strong>: a system whose performance model is understood in terms of queue buildup can be scaled <em>correctly</em> — you scale the specific resource that's saturated, not everything uniformly.</li>
+                <li><strong>Reliability</strong>: tail latency growth under load is an early warning sign of impending cascading failure (covered later under circuit breakers/retries) — ignoring it means you find out about capacity limits during an incident instead of a dashboard.</li>
+                <li><strong>Cost optimization</strong>: resource saturation metrics prevent both over-provisioning (paying for idle capacity) and under-provisioning (customer-facing latency).</li>
+                <li><strong>If you ignore this concept entirely:</strong> you'll chase performance problems by guessing — adding random caches, throwing hardware at symptoms, "optimizing" code that isn't actually the bottleneck — because you have no model for <em>where</em> the queue is actually forming. This is the single most common failure mode in real-world performance firefighting.</li>
+            </ul>
+
+            <hr>
+
+            <h2 id="performance-analysis">7. Performance Analysis (of the measurement practice itself)</h2>
+            
+            <ul>
+                <li><strong>Why average latency alone is a weak signal:</strong> it's insensitive to distribution shape; a system can have great average latency and terrible P99, and averages don't reveal <em>when</em> the system is entering saturation.</li>
+                <li><strong>Why resource saturation must be measured per-resource:</strong> CPU saturation and network saturation have different remediation paths (scale compute vs. reduce payload size / add CDN) — a single "is the system healthy" number hides which resource is actually the bottleneck.</li>
+                <li><strong>Why error rate must be segmented (timeout vs. functional):</strong> conflating them under one "error %" metric during a load test makes the test result uninterpretable — you can't tell if you found the load ceiling or found a bug.</li>
+                <li><strong>Queueing math intuition (informal):</strong> as utilization (ρ) → 1, expected wait time → ∞ in simple queueing models. This is why performance dashboards should treat "70% CPU" and "95% CPU" as qualitatively different regimes, not just two points on a linear scale.</li>
+            </ul>
+
+            <hr>
+
+            <h2 id="real-world-examples">8. Real-World Architecture Examples</h2>
+            
+            <p><strong>1. E-commerce checkout during a flash sale</strong></p>
+            <ul>
+                <li>Problem: request volume spikes 20x for a short window.</li>
+                <li>Why queue-buildup framing matters: the bottleneck could be DB connection pool exhaustion (serial resource access) <em>or</em> insufficient application server capacity (limited capacity) — these require entirely different fixes.</li>
+                <li>Trade-off accepted: teams often over-provision capacity temporarily (expensive) rather than redesign for the rare spike.</li>
+                <li>Alternative: queue the excess requests explicitly (a request queue with graceful degradation) rather than letting an implicit OS-level queue form uncontrolled.</li>
+                <li>Failure scenario: if functional errors appear alongside timeouts under this load, the team can't tell whether the system would work at all at that scale — the load test itself becomes meaningless per the transcript's warning.</li>
+            </ul>
+
+            <p><strong>2. Nightly batch reporting job (matches the reference system's reporting component)</strong></p>
+            <ul>
+                <li>Problem: a report needs to process a full day's transactional data before business open.</li>
+                <li>Why architecture choice: pure throughput optimization — there's no "user" waiting on an individual request, so latency-focused techniques (e.g., response caching) are irrelevant; the metric that matters is total completion time.</li>
+                <li>Trade-off: batch jobs are often run against read replicas to avoid impacting live request/response traffic — an early instance of the "shared resource contention" problem the course flags for deeper coverage.</li>
+                <li>Failure scenario: if the batch job and live traffic share the same DB capacity, batch processing itself becomes a source of "serial resource access" queue buildup for the live checkout path.</li>
+            </ul>
+
+            <p><strong>3. A shared bank-account ledger service (directly referenced in the transcript)</strong></p>
+            <ul>
+                <li>Problem: concurrent deposit/withdrawal requests on the <em>same</em> account must be serialized for correctness.</li>
+                <li>Why this architecture: correctness (avoiding lost updates) requires strict serial access to that specific account's balance.</li>
+                <li>Trade-off accepted: throughput on a single hot account is capped no matter how much hardware capacity you add (Amdahl's Law territory) — this is an <em>inherent</em>, not accidental, limitation.</li>
+                <li>Alternative: partition access at finer granularity if possible (e.g., append-only ledger entries reconciled asynchronously) rather than a single lock on "the account" — full pattern covered later under partitioning/sharding.</li>
+            </ul>
+
+            <hr>
+
+            <h2 id="architecture-diagrams">9. Architecture Diagrams</h2>
+            
+            <p><strong>Reference system + where queues can form:</strong></p>
+<pre><code> Browser
+    |
+    v
+[Web Application]  &lt;-- accept-queue / thread-pool queue can build up here
+    |
+    v
+[Business Service] &lt;-- thread-pool queue, lock/serial-access queue
+    |
+    v
+[RDBMS Database]   &lt;-- connection-pool queue, row-lock queue, disk I/O queue
+    ^
+    |
+[Reporting / Batch] &lt;-- shares DB capacity; competes for same resource</code></pre>
+
+            <p><strong>Latency composition:</strong></p>
+<pre><code>Total Request Latency = Wait Time (queued, not yet processed)
+                       + Processing Time (actually being worked on)</code></pre>
+
+            <p><strong>Tail latency distribution (conceptual):</strong></p>
+<pre><code># of requests
+    |
+    |███
+    |███████
+    |█████████████        &lt;- bulk of requests, low latency
+    |████████████████
+    |███████████████████
+    |___________________▓▓▓▓▓______________________________&gt; latency
+                         ^
+                    P99 cutoff — small % of requests, disproportionately high latency</code></pre>
+
+            <hr>
+
+            <h2 id="interview-questions">10. Interview Questions</h2>
+            
+            <p><strong>Basic</strong></p>
+            <ol>
+                <li><em>What defines "performance" of a software system, and why must workload and hardware be held constant when measuring it?</em><br>
+                → Performance = responsiveness under a <strong>fixed</strong> workload and hardware. Holding these constant isolates the system's own efficiency from external variables; otherwise you can't compare measurements meaningfully.</li>
+                <li><em>What are the two core performance objectives, and how are they related?</em><br>
+                → Minimize latency, maximize throughput. Throughput = f(latency, capacity) — lowering latency directly raises throughput; capacity is the other lever.</li>
+                <li><em>Name the four key performance metrics.</em><br>
+                → Latency, throughput, errors, resource saturation. (Errors matter because they invalidate the other three if functional; saturation tells you whether to add/remove capacity.)</li>
+            </ol>
+
+            <p><strong>Intermediate</strong></p>
+            <ol start="4">
+                <li><em>A service shows great average latency but poor P99. What does this suggest, and why does it matter more as load increases?</em><br>
+                → Suggests queueing effects affecting a minority of requests — likely contention for a shared resource. It matters more under load because queueing delay grows non-linearly as resource utilization approaches saturation; tail latency is a leading indicator of a system approaching its ceiling.</li>
+                <li><em>During a load test, you see both timeout errors and functional (500) errors. How do you interpret the results?</em><br>
+                → Timeouts alone are acceptable — they show you found the system's true capacity ceiling. Functional errors invalidate the test entirely: you can't trust the latency/throughput numbers from a system producing incorrect output, because you don't know if those numbers reflect real production behavior.</li>
+                <li><em>Why is "efficiency" scoped to single/serial request processing rather than concurrent processing?</em><br>
+                → Efficiency is about the intrinsic cost of a request's own logic/resource use, isolated from other requests. Concurrency introduces a <em>separate</em> class of problems (queuing for shared resources, coherence) that exist even if every individual request is maximally efficient — conflating the two would make it impossible to diagnose which type of fix is needed.</li>
+            </ol>
+
+            <p><strong>Advanced</strong></p>
+            <ol start="7">
+                <li><em>A single hot database row (e.g., one heavily-traded stock's order book) is causing severe contention. Explain why adding more application servers or DB read replicas won't fix this, and what class of fix would.</em><br>
+                → This is serial resource access on a single mutable row — an Amdahl's Law-style bottleneck. Adding parallel capacity elsewhere doesn't touch the serialized critical section; throughput on that row is capped by how fast that one lock can be acquired/released. Real fixes: reduce the critical section's work, partition further if correctness allows it, or move to an append-only/CRDT-style model that avoids the lock — not "add more hardware."</li>
+                <li><em>Why does the instructor explicitly separate "capacity" from "efficiency" and "concurrency" as a lesser focus of an architecture course?</em><br>
+                → Capacity augmentation is a purchasing/provisioning decision — it doesn't require architectural skill to reason through (more/better hardware directly relieves capacity-bound bottlenecks). Efficiency and concurrency, by contrast, require <em>design</em> decisions (algorithms, data structures, caching, locking strategy, contention scoping) that don't get solved by spending money — that's the actual skill an architect must have, and misdiagnosing a design problem as a capacity problem leads to wasted spend without fixing the root cause.</li>
+                <li><em>Explain, in terms of queueing theory, why tail latency degrades disproportionately as utilization increases, and what implication this has for capacity planning.</em><br>
+                → In queueing systems, expected wait time grows non-linearly (approaching infinity) as utilization (ρ) approaches 1 — small increases in load near saturation cause large increases in queueing delay, and this shows up first in the tail (P99/P99.9) before it visibly shifts the average. Implication: capacity planning shouldn't target "average utilization looks fine" — it should keep peak utilization comfortably below saturation, with tail-latency SLOs used as the actual trigger for scaling, since by the time the average moves, the tail has already been degrading for a while.</li>
+            </ol>
+
+            <hr>
+
+            <h2 id="common-mistakes">11. Common Mistakes & Misconceptions</h2>
+            
+            <ul>
+                <li><strong>"If average latency is good, the system is healthy."</strong> Wrong — tail latency can be quietly bad for a meaningful fraction of users, and worsens first as load increases, well before the average shows any sign of trouble.</li>
+                <li><strong>"Any error during a load test means the system failed."</strong> Wrong — timeouts under intentionally heavy load are expected and informative; only <em>functional</em> errors invalidate the test.</li>
+                <li><strong>"Adding more servers always fixes a performance problem."</strong> Wrong — if the bottleneck is serial resource access (a lock, a single hot row), added capacity elsewhere doesn't relieve it; this is a design problem, not a capacity problem.</li>
+                <li><strong>"Efficient code alone guarantees good performance under load."</strong> Wrong — a perfectly efficient single request can still suffer badly once concurrency-specific issues (queuing for shared resources, coherence) enter the picture; these are distinct problem classes.</li>
+                <li><strong>"Batch jobs need latency optimization too."</strong> Wrong per this framework — batch components have no request/response concept; only throughput/total completion time is meaningful for them.</li>
+                <li><strong>"Performance and capacity are the same lever."</strong> Wrong — capacity is one of three levers (efficiency, concurrency, capacity); treating it as the <em>only</em> lever means you'll keep scaling hardware to paper over design flaws instead of fixing them.</li>
+            </ul>
+
+            <hr>
+
+            <h2 id="connections">12. Connections to Other Architecture Topics</h2>
+            
+<pre><code>Queue Buildup (root cause of all perf problems)
+        |
+        ├── Efficiency ──&gt; Data structures &amp; indexing ──&gt; Caching (next: dedicated caching module)
+        |
+        ├── Concurrency ──&gt; Queuing &amp; Contention ──&gt; Locking strategies (Pessimistic/Optimistic — later)
+        |                                          ──&gt; Coherence (later)
+        |                                          ──&gt; Amdahl's Law &amp; Gunther's Law (later, same module)
+        |
+        └── Capacity ──&gt; Vertical/Horizontal Scaling ──&gt; Load Balancing ──&gt; Replication ──&gt; Partitioning
+                                                                                  (Module 2: Scalability)
+
+Tail Latency (P99) ──&gt; Resource Saturation ──&gt; Auto-scaling decisions ──&gt; Reliability/Circuit Breakers
+                                                                              (Module 3: Reliability)</code></pre>
+
+            <p>This module is the <em>foundation</em>: every later module (Scalability, Reliability, Deployment) is ultimately still fighting the same enemy — a queue building up somewhere — just at a larger architectural scale (across services, across data centers, across failure domains).</p>
+        </div>
+    </main>
+
+</body>
+</html>
