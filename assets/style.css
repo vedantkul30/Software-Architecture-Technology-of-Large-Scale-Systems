@@ -1,0 +1,104 @@
+body {
+    max-width: 1200px;
+    margin: auto;
+    padding: 35px 25px;
+    font-family: Arial, sans-serif;
+    background: linear-gradient(to bottom right, #f8f9fa, #eef4ff);
+    color: #222;
+}
+
+/* Main Title */
+h1 {
+    text-align: center;
+    margin-bottom: 45px;
+    font-size: 2.4rem;
+    font-weight: 700;
+    color: #1d3557;
+    padding-bottom: 15px;
+    border-bottom: 3px solid #dbe7ff;
+}
+
+/* Topic Group Card */
+.topic {
+    background: white;
+    padding: 24px;
+    margin-bottom: 28px;
+    border-radius: 16px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.topic:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
+}
+
+/* Section Heading */
+h2 {
+    margin-top: 0;
+    margin-bottom: 20px;
+    color: #0b3d91;
+    font-size: 1.4rem;
+    font-weight: 700;
+    border-left: 6px solid #4f8cff;
+    padding-left: 14px;
+}
+
+/* Topic List */
+.subtopics {
+    list-style: none;
+    padding-left: 0;
+    margin: 0;
+}
+
+/* Each Subtopic */
+.subtopics li {
+    margin: 12px 0;
+    padding: 0;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+/* Full Row Clickable */
+.subtopics li a {
+    display: block;
+    padding: 15px 18px;
+    background: #f4f7fc;
+    color: #1565c0;
+    text-decoration: none;
+    font-weight: 500;
+    border-left: 4px solid transparent;
+    transition: all 0.25s ease;
+}
+
+/* Hover Effects */
+.subtopics li a:hover {
+    background: #e8f1ff;
+    border-left: 4px solid #4f8cff;
+    color: #0b3d91;
+    transform: translateX(6px);
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+    body {
+        padding: 20px 15px;
+    }
+
+    h1 {
+        font-size: 1.8rem;
+    }
+
+    h2 {
+        font-size: 1.15rem;
+    }
+
+    .topic {
+        padding: 18px;
+    }
+
+    .subtopics li a {
+        padding: 13px 14px;
+        font-size: 0.95rem;
+    }
+}
