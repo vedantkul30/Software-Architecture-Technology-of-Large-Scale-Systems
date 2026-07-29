@@ -495,9 +495,29 @@
 
             <p>🔑 <strong>Simple Version:</strong> Optimistic locking is like everyone drafting their part of a shared document freely and only quickly checking, right before hitting "save," whether someone else already changed the same paragraph. If nobody did — great, fast, no waiting. If someone did — you have to throw away your draft and redo it. This works great when collisions are rare, but if everyone's constantly editing the same paragraph, you'll spend more time redoing work than if you'd just taken turns from the start (pessimistic).</p>
 
-            <p><strong>Decision rule (memorize this):</strong></p>
-<pre><code>High contention        -&gt; Pessimistic Locking (guaranteed no wasted work, but low parallelism)
-Low-to-moderate contention -&gt; Optimistic Locking (high parallelism, occasional wasted retries)</code></pre>
+            <p><strong>Simple Rule to Remember:</strong></p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Situation</th>
+      <th>Best Choice</th>
+      <th>Why</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Many threads frequently modify the same data (High contention)</td>
+      <td><strong>Pessimistic Locking</strong></td>
+      <td>Waiting is cheaper than repeated retries, so no work is wasted.</td>
+    </tr>
+    <tr>
+      <td>Threads rarely modify the same data (Low to Moderate contention)</td>
+      <td><strong>Optimistic Locking</strong></td>
+      <td>Parallel execution is much faster because conflicts and retries are rare.</td>
+    </tr>
+  </tbody>
+</table>
 
             <h3>2.9 Compare-And-Swap (CAS)</h3>
             <p>CAS is the actual <strong>hardware-supported mechanism</strong> underlying optimistic locking. It's an atomic instruction supported at the CPU level, built upon by the OS, and exposed in languages (Java: <code>AtomicInteger.compareAndSet(expectedOldValue, newValue)</code>, in <code>java.util.concurrent.atomic</code>).</p>
