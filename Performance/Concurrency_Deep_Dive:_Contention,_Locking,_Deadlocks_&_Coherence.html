@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Concurrency Deep Dive: Contention, Locking, Deadlocks & Coherence</title>
+    <style>
+        :root {
+            --sidebar-bg: #0f172a;
+            --sidebar-hover: #1e293b;
+            --sidebar-text: #94a3b8;
+            --sidebar-text-hover: #f8fafc;
+            --bg-color: #f1f5f9;
+            --card-bg: #ffffff;
+            --text-main: #334155;
+            --heading-color: #0f172a;
+            --primary-accent: #2563eb;
+            --code-bg: #1e293b;
+            --code-text: #e2e8f0;
+            --inline-code-bg: #e2e8f0;
+            --inline-code-text: #b91c1c;
+            --border-color: #e2e8f0;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            line-height: 1.7;
+        }
+
+        /* Sidebar Navigation */
+        .sidebar {
+            width: 280px;
+            height: 100vh;
+            background-color: var(--sidebar-bg);
+            position: fixed;
+            top: 0;
+            left: 0;
+            overflow-y: auto;
+            padding: 2rem 1rem;
+            box-sizing: border-box;
+            border-right: 1px solid #1e293b;
+        }
+
+        .sidebar h2 {
+            color: #ffffff;
+            font-size: 1.2rem;
+            margin-bottom: 1.5rem;
+            padding-left: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .sidebar ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .sidebar li {
+            margin-bottom: 0.5rem;
+        }
+
+        .sidebar a {
+            display: block;
+            padding: 0.75rem 1rem;
+            color: var(--sidebar-text);
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .sidebar a:hover {
+            background-color: var(--sidebar-hover);
+            color: var(--sidebar-text-hover);
+            padding-left: 1.25rem;
+        }
+
+        /* Main Content Area */
+        .content-wrapper {
+            margin-left: 280px;
+            padding: 3rem 5%;
+            width: calc(100% - 280px);
+            box-sizing: border-box;
+        }
+
+        .content {
+            background: var(--card-bg);
+            padding: 3rem 4rem;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        /* Typography */
+        h1, h2, h3, h4 {
+            color: var(--heading-color);
+            margin-top: 2.5rem;
+            margin-bottom: 1rem;
+            font-weight: 700;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-top: 0;
+            padding-bottom: 1rem;
+            border-bottom: 3px solid var(--primary-accent);
+        }
+
+        h2 {
+            font-size: 1.8rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-top: 1rem;
+        }
+
+        h3 {
+            font-size: 1.4rem;
+            color: var(--primary-accent);
+        }
+
+        h4 {
+            font-size: 1.1rem;
+            color: var(--heading-color);
+        }
+
+        p {
+            margin-bottom: 1.2rem;
+        }
+
+        strong {
+            color: var(--heading-color);
+        }
+
+        /* Code Blocks */
+        pre {
+            background-color: var(--code-bg);
+            color: var(--code-text);
+            padding: 1.5rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: 'Fira Code', 'Courier New', Courier, monospace;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        code {
+            background-color: var(--inline-code-bg);
+            color: var(--inline-code-text);
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-family: 'Fira Code', 'Courier New', Courier, monospace;
+            font-size: 0.9em;
+        }
+
+        pre code {
+            background-color: transparent;
+            color: inherit;
+            padding: 0;
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 2rem 0;
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        th, td {
+            padding: 1rem;
+            text-align: left;
+            border: 1px solid var(--border-color);
+            vertical-align: top;
+        }
+
+        th {
+            background-color: #f8fafc;
+            color: var(--heading-color);
+            font-weight: 600;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f8fafc;
+        }
+
+        /* Lists */
+        ul, ol {
+            margin-bottom: 1.5rem;
+            padding-left: 2rem;
+        }
+
+        li {
+            margin-bottom: 0.5rem;
+        }
+
+        hr {
+            border: 0;
+            border-top: 1px solid var(--border-color);
+            margin: 2rem 0;
+        }
+
+        /* Callouts / Highlight Box */
+        .highlight-box {
+            background-color: #eff6ff;
+            border-left: 4px solid var(--primary-accent);
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 900px) {
+            .sidebar {
+                width: 100%;
+                height: auto;
+                position: relative;
+                padding: 1rem;
+            }
+            .content-wrapper {
+                margin-left: 0;
+                width: 100%;
+                padding: 1rem;
+            }
+            .content {
+                padding: 1.5rem;
+            }
+            h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Vertical Sidebar -->
+    <nav class="sidebar">
+        <h2>Contents</h2>
+        <ul>
+            <li><a href="#intro">Context & Scope</a></li>
+            <li><a href="#core-concept">1. Core Concept & Intuition</a></li>
+            <li><a href="#transcript-content">2. Transcript Content</a></li>
+            <li><a href="#deep-technical">3. Deep Technical Explanation</a></li>
+            <li><a href="#architecture-tradeoffs">4. Architecture Trade-offs</a></li>
+            <li><a href="#production-perspective">5. Production System Perspective</a></li>
+            <li><a href="#system-design">6. System Design Perspective</a></li>
+            <li><a href="#performance-analysis">7. Performance Analysis</a></li>
+            <li><a href="#real-world-examples">8. Real-World Architecture Examples</a></li>
+            <li><a href="#architecture-diagrams">9. Architecture Diagrams</a></li>
+            <li><a href="#interview-questions">10. Interview Questions</a></li>
+            <li><a href="#common-mistakes">11. Common Mistakes & Misconceptions</a></li>
+            <li><a href="#connections">12. Connections to Other Topics</a></li>
+        </ul>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="content-wrapper">
+        <div class="content">
+
+            <div id="intro">
+                <h1>Concurrency Deep Dive: Contention, Locking, Deadlocks & Coherence</h1>
+                <h3 style="color: var(--text-main); font-weight: normal; margin-top: -10px; margin-bottom: 2rem;"><strong>Course:</strong> Developer to Architect | <strong>Module 1: Performance — Concurrency (final section)</strong></h3>
+                
+                <div class="highlight-box">
+                    <p><em>(Continuation of <code>02_Latency_Fundamentals_and_Optimization.md</code>. Scope note: these transcripts cover Amdahl's Law → Gunther's Universal Scalability Law → shared resource contention → locking (pessimistic/optimistic/CAS) → deadlocks → coherence. This is the entire "parallel/concurrent request latency" arc of Module 1. It does <strong>not</strong> cover Caching (the last remaining Module 1 topic) or anything from Module 2: Scalability — those transcripts weren't included in this batch, so I haven't pre-taught them. This topic is genuinely one of the harder ones in the whole course, so I've leaned extra hard into plain-language explanations and worked examples throughout — look for the 🔑 <strong>Simple Version</strong> callouts.)</em></p>
+                </div>
+                <hr>
+            </div>
+
+            <h2 id="core-concept">1. Core Concept & Intuition</h2>
+            
+            <h3>One-Sentence Definition</h3>
+            <p>Concurrency performance is limited by exactly two enemies — <strong>queuing</strong> (threads waiting in line for a lock or resource) and <strong>coherence</strong> (the hidden cost of keeping shared data consistent across CPU cores) — and almost every concurrency technique in this module is really just a strategy for fighting one of these two enemies.</p>
+
+            <p>🔑 <strong>Simple Version:</strong> Imagine you already made each <em>individual</em> worker as fast as possible (that was the previous module — serial/single-request efficiency). Now you're hiring more workers to work <em>together</em>. This module is about what goes wrong when workers try to share the same stuff — the same cash register, the same filing cabinet, the same shared spreadsheet — and how to stop that sharing from making things slower instead of faster.</p>
+
+            <h3>Why This Concept Exists</h3>
+            <p>You'd expect "add more workers/threads/CPUs" to always make a system faster. It doesn't, and this module explains exactly <em>why</em> and exactly <em>how much</em> it falls short — with actual math (Amdahl's Law, Gunther's Law), not vague hand-waving. The industry needed this because naive capacity-adding ("just add more threads/servers") kept failing to deliver the expected speedup, and sometimes made things <em>worse</em> — a mystery unless you understand queuing and coherence.</p>
+
+            <h3>Architecture Analogy</h3>
+            <p>Think of a <strong>shared office printer</strong>:</p>
+            <ul>
+                <li>If everyone can print at the exact same time with zero interference, adding more employees who print = proportionally more printing done (perfectly parallel).</li>
+                <li>But if there's only <strong>one printer</strong> and everyone has to queue for it, adding more employees doesn't add more printed pages per minute — it just makes the queue longer (this is the <strong>serial portion / queuing</strong> problem — Amdahl's Law).</li>
+                <li>Now imagine the printer also requires everyone to physically walk to a shared logbook, cross out the old entry, and write a new one, every single time — and if two people try this at once, they have to double check the logbook is still correct (<strong>coherence</strong>). As you add more employees, they spend <em>more and more time</em> doing this bookkeeping dance instead of actual work — and past some point, throughput can literally <em>go down</em> as you add more employees. That's the piece Amdahl's Law misses and Gunther's Law captures.</li>
+            </ul>
+
+            <h3>How a Real System Sees It</h3>
+            <p>In the reference system (browser → web app → service → DB), concurrency problems show up as:</p>
+            <ul>
+                <li>Threads piling up in a <strong>thread pool queue</strong> waiting for a worker thread.</li>
+                <li>Threads piling up waiting for a <strong>database connection</strong> from a fixed-size connection pool.</li>
+                <li>Threads blocking on a <strong>lock</strong> (e.g., updating the same inventory row).</li>
+                <li>CPU cache lines being invalidated across cores because of a <strong>shared, frequently-modified variable</strong> (<code>volatile</code>/<code>synchronized</code> in Java) — invisible in most monitoring dashboards, but very real.</li>
+            </ul>
+
+            <hr>
+
+            <h2 id="transcript-content">2. Transcript Content (The "What")</h2>
+            
+            <h3>2.1 Serial vs. Parallel — Setting the Stage</h3>
+            <p>A request rarely flows through a system as <em>purely</em> serial or <em>purely</em> parallel. Real workflows alternate: some portions execute in parallel, then hit a <code>synchronized</code>/locked section (forced serial), then go back to parallel, and so on.</p>
+
+            <p>🔑 <strong>Simple Version:</strong> Picture a relay race where most of the track lets all runners run side-by-side, but there's one narrow bridge in the middle where only one runner can cross at a time. That bridge is your lock/synchronized block.</p>
+
+            <p><strong>Two extreme behaviors, to build intuition:</strong></p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>System type</th>
+                        <th>What happens as you add processors/threads</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Perfectly serial</strong> (1 request at a time, always)</td>
+                        <td>Throughput graph is <strong>completely flat</strong> — 1 processor or 100 processors, you still get 1 request/sec, because only one request can ever be "in flight."</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Perfectly parallel</strong> (zero serial portion)</td>
+                        <td>Throughput graph is <strong>perfectly linear</strong> — 2 processors = 2x throughput, 3 processors = 3x throughput, etc.</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <p>Real systems live between these two extremes, because real code has <em>some</em> locking/synchronization somewhere.</p>
+
+            <h3>2.2 Amdahl's Law</h3>
+            <p>Amdahl's Law quantifies exactly how much a <strong>serial portion</strong> (however small) caps your maximum possible speedup from adding processors/threads.</p>
+
+            <p><strong>The critical, counter-intuitive finding:</strong> it doesn't matter if the serial portion is 1% or 2% — <strong>there is always a point where the throughput graph goes completely flat</strong>, no matter how many processors you throw at it.</p>
+
+            <p>Worked comparison (parallel portion → serial portion → effect):</p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Parallel %</th>
+                        <th>Serial %</th>
+                        <th>Effect</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>95%</td>
+                        <td>5%</td>
+                        <td>Graph rises well, flattens only after a large number of processors (e.g., ~512)</td>
+                    </tr>
+                    <tr>
+                        <td>90%</td>
+                        <td>10%</td>
+                        <td>Flattens <strong>much sooner</strong>; max throughput achieved is roughly <strong>half</strong> of the 5%-serial case</td>
+                    </tr>
+                    <tr>
+                        <td>75%</td>
+                        <td>25%</td>
+                        <td>Flattens almost immediately</td>
+                    </tr>
+                    <tr>
+                        <td>50%</td>
+                        <td>50%</td>
+                        <td>Graph barely rises at all — nearly as bad as a fully serial system</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <p>🔑 <strong>Simple Version:</strong> Think of it like a rubber band that can only stretch so far no matter how hard you pull. The "serial part" of your code is like a knot tied in the rubber band — even a small knot means the band can never stretch past a certain point, and a bigger knot means it barely stretches at all. <strong>The practical rule of thumb from the transcript: try to keep the cumulative serial portion of your code under ~5% if you want good scaling.</strong></p>
+
+            <h3>2.3 Gunther's Universal Scalability Law (USL)</h3>
+            <p>Amdahl's Law only accounts for <strong>queuing</strong> (serial portions causing threads to wait). Real systems have a <strong>second enemy</strong>: <strong>coherence</strong> — the cost of keeping shared, frequently-modified data (e.g., a Java <code>volatile</code> variable) consistent across multiple CPU caches.</p>
+
+            <p><strong>The key distinguishing behavior:</strong></p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Cause</th>
+                        <th>Effect on throughput graph as concurrency increases</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Queuing</strong> (Amdahl's Law)</td>
+                        <td>Graph rises, then <strong>flattens</strong> — it never goes down.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Coherence</strong> (added by USL)</td>
+                        <td>Graph rises, flattens, and can then <strong>actually decrease</strong> — adding more threads/processors makes throughput <em>worse</em>.</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <p>🔑 <strong>Simple Version:</strong> Amdahl's Law says "you'll eventually stop gaining anything from more workers." Gunther's Law says "if those workers also have to constantly cross-check a shared notebook to stay in sync, past a certain point, adding <em>more</em> workers means everyone spends <em>more</em> time cross-checking than working — so total output actually drops." This retrograde (downward-sloping) curve is a real, observed phenomenon in highly multi-threaded applications with heavy shared-state usage.</p>
+
+            <p><strong>Practical takeaway:</strong> to build a genuinely concurrent, high-performing system, you must minimize <em>both</em> queuing (keep the serial/locked portion of code small) <em>and</em> coherence (minimize how much data is shared and how often it's modified across threads).</p>
+
+            <h3>2.4 Where Contention Actually Comes From (Causes)</h3>
+            <p>Walking a single new request through the system, contention (queuing) can appear at each of these points:</p>
+
+            <ol>
+                <li><strong>Listen queue / accept queue</strong> (network/OS level) — if the server can't accept connections fast enough, requests queue here first. Beyond a certain queue size, requests are outright <strong>rejected</strong> (client sees immediate errors).</li>
+                <li><strong>Thread pool</strong> — a request needs a worker thread to run on CPU; if all threads are busy, it waits.</li>
+                <li><strong>Context switching</strong> — increases specifically when threads are blocked on I/O or locks (not simply from having "many threads" per se).</li>
+                <li><strong>Connection pool</strong> (to a backend/DB) — if the backend is slow, threads queue up waiting for a free connection.</li>
+                <li><strong>Disk</strong> — for practical design purposes, assume disk access is effectively <strong>serial</strong> (one operation at a time), especially relevant for DB-heavy workloads.</li>
+                <li><strong>Network</strong> — can get choked, especially in microservices architectures with many internal service-to-service calls.</li>
+                <li><strong>Locks</strong> (the biggest source) — the "gatekeepers" of any serialized/synchronized code section; whenever multiple threads want the same lock, contention appears here.</li>
+            </ol>
+
+            <p>Databases experience the same categories of contention, but CPU and disk contention are typically much heavier there than elsewhere in the system.</p>
+
+            <h3>2.5 Minimizing Contention</h3>
+
+            <p><strong>A. Core system resources (CPU, disk, network, memory):</strong></p>
+            <ul>
+                <li>First priority: make sure single-request efficiency (previous module) is solid — resources should be used efficiently before anything else.</li>
+                <li>After that, for <strong>disk, network, and memory</strong>, the main remaining lever is <strong>vertical scaling</strong> (better/more powerful hardware). Named exception: <strong>RAID disks</strong> allow parallel access to replicated data, directly helping database-side disk contention.</li>
+                <li>CPU contention gets a more nuanced treatment via thread pool and connection pool sizing (below).</li>
+            </ul>
+
+            <p><strong>B. Thread pool sizing:</strong></p>
+            <ul>
+                <li>Too small → contention increases, listen queue builds up, requests wait for a free thread.</li>
+                <li>Too large → threads sit idle waiting for CPU time (e.g., 2,000 threads on a 10-CPU machine mostly just wait their turn for CPU) — throughput actually <em>decreases</em> here too.</li>
+                <li><strong>There's an optimal range, found via load testing</strong>, driven by:
+                    <ul>
+                        <li><strong>High wait time per request</strong> (lots of waiting on backend calls) → can afford a <strong>larger</strong> thread pool, since threads spend more time waiting than computing.</li>
+                        <li><strong>High CPU time, low wait time</strong> (pure computation, few backend calls) → thread pool size should be <strong>close to the number of CPUs</strong> — more threads than that just queue for CPU time.</li>
+                    </ul>
+                </li>
+            </ul>
+
+            <p>🔑 <strong>Simple Version:</strong> Think of thread pool sizing like deciding how many cashiers to hire. If customers spend a long time chatting (waiting on something external) before paying, you can hire more cashiers since each one isn't constantly busy. If checkout itself is fast and CPU-bound with no waiting, hiring way more cashiers than checkout counters just means most of them stand around uselessly.</p>
+
+            <p><strong>C. Connection pool sizing:</strong></p>
+            <ul>
+                <li>Rule of thumb: <strong>1:1 correspondence</strong> with thread pool size — each thread generally needs exactly one connection (HTTP connection to a downstream service, or one DB connection per thread, since a single transaction can't span multiple connections).</li>
+            </ul>
+
+            <p><strong>D. Listen queue:</strong></p>
+            <ul>
+                <li>Usually <strong>not</strong> something to actively tune — it's a symptom, not the root cause. Listen queue only becomes a real problem at extreme scale, and even then, the fix is an OS-level parameter tweak — but only <em>after</em> confirming the underlying processing rate (thread pool, connection pool) has already been optimized.</li>
+            </ul>
+
+            <p><strong>E. Vertical scaling — an important scoping note:</strong></p>
+            <p>Everything discussed in this concurrency/contention section is about improving performance <strong>on a single machine</strong>. Running multiple machines/instances is the <strong>Scalability</strong> module's territory (not covered in these transcripts) — this module's concurrency techniques are the <em>prerequisite</em> you do before scaling out to multiple machines.</p>
+
+            <h3>2.6 Minimizing Lock-Related Contention (general techniques)</h3>
+            <ol>
+                <li><strong>Reduce lock duration</strong>: never put anything inside a locked/synchronized block that doesn't strictly need to be there — especially I/O, since an I/O call inside a lock can trigger a context switch <em>while the lock is held</em>, which is disproportionately damaging to performance.</li>
+                <li><strong>Lock splitting</strong>: instead of one lock guarding a large chunk of shared state, split it into finer-grained locks on smaller pieces of state — reduces both contention (different threads can now lock <em>different</em> objects) and how long any single lock is held.</li>
+                <li><strong>Lock striping</strong>: a specific, powerful form of lock splitting used in concurrent data structures. Example: Java's <code>ConcurrentHashMap</code> internally divides its buckets into (typically 16) partitions, each with its <strong>own</strong> lock object — instead of one global lock for the whole map. If operations are evenly spread across partitions, this can yield up to a <strong>16x</strong> contention reduction versus a single global lock (actual gain varies, but always an improvement).</li>
+                <li><strong>Non-exclusive coordination mechanisms</strong> (alternatives to exclusive locks):
+                    <ul>
+                        <li><strong>Read/Write locks</strong>: readers can all hold the "read lock" simultaneously (not mutually exclusive among themselves); only a writer needs exclusive access, and only blocks against other writers/readers. Great when reads vastly outnumber writes.</li>
+                        <li><strong>Compare-and-swap (CAS)</strong>: covered in depth below.</li>
+                    </ul>
+                </li>
+            </ol>
+
+            <h3>2.7 Pessimistic Locking</h3>
+            <p><strong>Mechanism</strong> (worked e-commerce inventory example): fetch the record <strong>and lock it immediately</strong> (e.g., <code>SELECT ... FOR UPDATE</code>), do all processing while still holding the lock, update the record, then commit (releasing the lock).</p>
+            <ul>
+                <li><strong>Lock is held for the entire transaction duration</strong> — long.</li>
+                <li>Other threads wanting the same lock are fully blocked/serialized until the current thread commits.</li>
+                <li><strong>Use when contention is HIGH.</strong> Since every thread just waits its turn (no wasted retries), pessimistic locking guarantees no work is ever thrown away — a predictable, if slow, guarantee.</li>
+            </ul>
+
+            <p>🔑 <strong>Simple Version:</strong> Pessimistic locking is like grabbing the single office key <em>before</em> you even start your meeting, and holding onto it through the entire meeting, even parts where you don't need the room exclusively. Safe, but everyone else just has to wait outside the whole time.</p>
+
+            <h3>2.8 Optimistic Locking</h3>
+            <p><strong>Mechanism</strong> (same inventory example): fetch data <strong>without</strong> any lock, do all the processing <strong>without</strong> any lock, and only at the <strong>update</strong> step take a brief lock — with a <strong>verification check</strong> that the data hasn't changed since it was originally fetched (e.g., checking <code>quantity</code> is still the value you originally read).</p>
+            <ul>
+                <li>If verification <strong>fails</strong> (someone else changed the data first — "stale data"/lost-update risk), the thread must <strong>back off and restart</strong> the entire transaction from step one.</li>
+                <li>If it <strong>succeeds</strong>, commit and release the (very short-lived) lock.</li>
+                <li><strong>Lock duration is much shorter</strong> than pessimistic locking — the bulk of the work (fetch + processing) happens with <strong>zero locking</strong>, allowing true parallel execution for that portion.</li>
+                <li><strong>Use when contention is LOW to MODERATE.</strong> Few threads will ever need to back off/retry, so you get the benefit of mostly-parallel execution with minimal wasted work.</li>
+                <li><strong>Do NOT use when contention is HIGH</strong> — too many threads will fail verification and have to restart, wasting large amounts of redone work; in that regime, pessimistic locking is actually more efficient because it avoids all that wasted, repeated processing.</li>
+            </ul>
+
+            <p>🔑 <strong>Simple Version:</strong> Optimistic locking is like everyone drafting their part of a shared document freely and only quickly checking, right before hitting "save," whether someone else already changed the same paragraph. If nobody did — great, fast, no waiting. If someone did — you have to throw away your draft and redo it. This works great when collisions are rare, but if everyone's constantly editing the same paragraph, you'll spend more time redoing work than if you'd just taken turns from the start (pessimistic).</p>
+
+            <p><strong>Decision rule (memorize this):</strong></p>
+<pre><code>High contention        -&gt; Pessimistic Locking (guaranteed no wasted work, but low parallelism)
+Low-to-moderate contention -&gt; Optimistic Locking (high parallelism, occasional wasted retries)</code></pre>
+
+            <h3>2.9 Compare-And-Swap (CAS)</h3>
+            <p>CAS is the actual <strong>hardware-supported mechanism</strong> underlying optimistic locking. It's an atomic instruction supported at the CPU level, built upon by the OS, and exposed in languages (Java: <code>AtomicInteger.compareAndSet(expectedOldValue, newValue)</code>, in <code>java.util.concurrent.atomic</code>).</p>
+
+            <p><strong>How it works:</strong> you provide (a) the value you <em>believe</em> is currently there, and (b) the new value you want to set. The hardware atomically checks: is the current value <strong>still</strong> what you expected?</p>
+            <ul>
+                <li><strong>Yes</strong> → set the new value, return <code>true</code>.</li>
+                <li><strong>No</strong> (someone else already changed it) → do nothing, return <code>false</code> — caller must re-read the current value and retry.</li>
+            </ul>
+
+            <p><strong>Database analogue</strong> (Cassandra "lightweight transactions" example): <code>UPDATE inventory SET quantity = 200 WHERE product_id = X IF quantity = 100</code>. If the actual current value isn't 100, the update fails and returns false — exactly the CAS pattern, just expressed as a conditional SQL-like statement.</p>
+
+            <p><strong>Why this matters for NoSQL specifically:</strong> most NoSQL databases don't support full multi-statement transactions, so CAS-style optimistic concurrency (via an <code>IF</code> condition on update) is often the <em>only</em> practical way to guarantee atomicity for a single record update.</p>
+
+            <p>🔑 <strong>Simple Version:</strong> CAS is like saying "set the whiteboard to '20', <strong>but only if it currently still says 10</strong> — otherwise don't touch it and tell me it failed." It's extremely fast because the CPU hardware itself does this check-and-set as one indivisible step — no OS-level lock, no context switch needed.</p>
+
+            <h3>2.10 Deadlocks</h3>
+            <p>Deadlocks either throttle performance or bring the system to a complete standstill. Two broad causes:</p>
+
+            <p><strong>A. Lock-ordering deadlocks</strong><br>
+            Classic example: two threads (T1, T2) transferring money between the same two accounts (X, Y) in <em>opposite directions</em>.</p>
+<pre><code>T1: locks X, then wants Y
+T2: locks Y, then wants X
+--&gt; T1 is stuck waiting for Y (held by T2)
+--&gt; T2 is stuck waiting for X (held by T1)
+--&gt; DEADLOCK: neither can ever proceed</code></pre>
+            <p>Every thread stuck in a deadlock is effectively a thread permanently removed from your available pool — with enough deadlocks, system performance collapses even though "nothing crashed."</p>
+
+            <p><strong>Fix:</strong> establish a <strong>global, consistent lock-acquisition order</strong> (e.g., always sort account IDs and lock the lower ID first). If both T1 and T2 always lock X before Y regardless of transfer direction, the circular-wait condition that causes deadlock becomes structurally impossible.</p>
+
+            <p>🔑 <strong>Simple Version:</strong> Two people trying to swap seats by each grabbing their own chair first, then reaching for the other's chair — both stuck holding one chair, waiting for the other to let go, forever. The fix: agree in advance that "whoever's chair has the lower ID number gets grabbed first, always" — now nobody can end up in that stuck standoff.</p>
+
+            <p><strong>B. Load-induced (request-load) deadlocks</strong><br>
+            These only appear under <strong>high load</strong>, not low load — which makes them especially dangerous (they hide during normal testing).</p>
+
+            <p>Example: a gateway service with a thread pool of 10. Under high concurrent load, all 10 gateway threads get consumed by initial incoming requests. Those requests, in turn, need to make an <strong>internal</strong> call that's <em>also</em> routed back through the same gateway (e.g., Service 1 calling Service 2 via the same gateway). But the gateway has zero free threads left — so these internal calls block forever, waiting for a thread that will only free up once the very request they're blocking <em>completes</em>. Classic circular wait, just resource-pool-based instead of lock-based.</p>
+
+            <ul>
+                <li>Under <strong>low load</strong>, this doesn't manifest — there are spare threads available for the internal call.</li>
+                <li>Under <strong>high load</strong>, all capacity gets consumed by the "outer" requests before the "inner" (self-referential) calls can get served.</li>
+            </ul>
+
+            <p><strong>Fix:</strong> don't route internal/nested service-to-service calls through the same bottlenecked resource pool used for external calls — either call directly (bypassing the shared gateway), or provision <strong>dedicated, reserved capacity</strong> for internal calls so they can never be starved by external traffic.</p>
+
+            <p>🔑 <strong>Simple Version:</strong> Imagine a single reception desk with 10 phone lines. All 10 lines get tied up by outside callers. Now an employee needs to use one of those same 10 lines to call another employee <em>inside</em> the building — but there are no lines left, and the outside calls won't hang up until the employee's own task (which needs that internal call) is done. Deadlock. Fix: give internal calls their own separate phone lines.</p>
+
+            <h3>2.11 Coherence-Related Delays</h3>
+            <p>Coherence is the <strong>second enemy of concurrency</strong> (from Gunther's Law), specifically about <strong>shared, frequently-modified data</strong> across multiple CPU cores.</p>
+
+            <p><strong>Mechanism:</strong> each CPU core has its own L1/L2 cache. If a variable/object is shared across threads running on different cores, and it's <strong>not</strong> guarded (no <code>synchronized</code>/<code>volatile</code> in Java), each core may hold its <strong>own stale copy</strong> in its cache — a change made on one core is <strong>not guaranteed</strong> to become visible to another core at all, let alone promptly. This can cause genuine correctness bugs (e.g., a "stop" flag set by one thread that another thread never sees).</p>
+
+            <p><strong>Two fixes, with different cost profiles:</strong></p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Mechanism</th>
+                        <th>Guarantees</th>
+                        <th>Cost</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>synchronized</code></td>
+                        <td>Both mutual exclusion (locking) <strong>and</strong> visibility</td>
+                        <td>Full locking overhead + main-memory read/write cost</td>
+                    </tr>
+                    <tr>
+                        <td><code>volatile</code></td>
+                        <td>Visibility <strong>only</strong> (no mutual exclusion)</td>
+                        <td>Skips locking overhead, but <strong>still</strong> pays the main-memory read/write cost</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <p><strong>Why this cost is real and significant:</strong> L1/L2 cache access is roughly <strong>0.5–7 nanoseconds</strong>; main memory access is roughly <strong>100 nanoseconds</strong> — about <strong>14–15x slower</strong>. Every time coherence forces a read/write to go through main memory instead of a fast local cache, you're paying that full penalty.</p>
+
+            <p>🔑 <strong>Simple Version:</strong> Normally, each CPU core keeps its own quick personal notepad copy of shared data (super fast to read/write). But if the data has to stay <em>perfectly in sync</em> across all cores, every core is forced to constantly walk over to a shared central filing cabinet (slow) instead of just checking its own notepad. <code>synchronized</code> means "only one person can be at the cabinet at a time, and it's always kept up to date." <code>volatile</code> means "anyone can look, but they always have to walk to the cabinet — no locking the door, but still no shortcuts to the notepad."</p>
+
+            <p><strong>Mitigation:</strong> there's no way to eliminate coherence cost when correctness genuinely requires shared, synchronized visibility — but you <em>can</em> minimize it by (a) minimizing how much data is actually shared across threads, and (b) minimizing how frequently that shared data is read/written. Where coherence is unavoidable, you simply pay the cost; where it's avoidable, you should avoid the sharing altogether.</p>
+
+            <hr>
+
+            <h2 id="deep-technical">3. Deep Technical Explanation</h2>
+            
+            <h3>Why Amdahl's Law caps speedup regardless of serial-portion size</h3>
+            <p>Amdahl's Law formalizes: <strong>Speedup = 1 / (S + (1-S)/N)</strong>, where S = serial fraction, N = number of processors. As N → ∞, speedup approaches <strong>1/S</strong> — a hard ceiling determined entirely by the serial fraction, no matter how many processors you add. This is why even a 5% serial portion caps maximum speedup at 20x, and a 50% serial portion caps it at just 2x — regardless of whether you have 100 or 10,000 processors.</p>
+
+            <h3>Why USL adds a downward slope that Amdahl's Law can't produce</h3>
+            <p>Amdahl's Law only models queuing/serialization, which asymptotically flattens throughput but can never make it <em>decrease</em> — mathematically, more processors can never make already-completed work take longer. Gunther's USL adds a term for <strong>coherence overhead that scales with the square of concurrency</strong> (roughly: as N threads all need to coordinate/synchronize pairwise, the coordination cost grows faster than the added parallel capacity) — this is what produces the observed retrograde (downward) curve in real heavily-multi-threaded, shared-state-heavy systems.</p>
+
+            <h3>Why lock striping works but has diminishing returns</h3>
+            <p>Striping into N partitions helps only to the extent that access patterns are <strong>evenly distributed</strong> across those partitions. If, say, one "hot" key/bucket receives disproportionate traffic, that single partition's lock becomes the new bottleneck regardless of how many other partitions exist — a direct echo of Amdahl's Law at the data-structure level: an uneven hot spot behaves like an outsized serial fraction.</p>
+
+            <h3>Why optimistic locking's failure mode is nonlinear under high contention</h3>
+            <p>Under optimistic locking, each failed verification means the entire fetch+process phase must be redone. As contention rises, the <em>probability</em> of a conflict per transaction rises, which increases retries, which increases the number of concurrently-competing threads all trying to fetch+redo simultaneously — compounding rather than merely adding delay. This is why the "switch to pessimistic locking at high contention" rule isn't just a rough guideline — it reflects a genuinely different growth curve in wasted work as contention increases.</p>
+
+            <h3>Why load-induced deadlocks are uniquely dangerous</h3>
+            <p>Ordinary deadlocks (lock-ordering) are structural — they either can or can't happen given the code, regardless of load. Load-induced deadlocks are <strong>load-dependent</strong>: they are invisible during low-traffic testing and QA, and only manifest once traffic crosses a specific threshold in production — making them a classic "worked in staging, fell over in prod" failure mode. This is a direct, practical consequence of the "queue buildup as utilization approaches saturation" principle from the very first performance lecture, applied specifically to self-referential (nested) resource pool usage.</p>
+
+            <hr>
+
+            <h2 id="architecture-tradeoffs">4. Architecture Trade-offs (The "Why")</h2>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>Decision</th>
+                        <th>Why choose it</th>
+                        <th>When NOT to</th>
+                        <th>Problems it introduces</th>
+                        <th>Alternative</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Pessimistic Locking</strong></td>
+                        <td>Guarantees no wasted/redone work; predictable under high contention</td>
+                        <td>Low-contention workloads (unnecessarily serializes work that rarely actually conflicts)</td>
+                        <td>Low parallelism; long lock hold times reduce overall throughput</td>
+                        <td>Optimistic Locking</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Optimistic Locking</strong></td>
+                        <td>High parallelism; minimal locking overhead for most of the work</td>
+                        <td>High-contention workloads (too many retries)</td>
+                        <td>Wasted, repeated processing on verification failure; unbounded retry storms possible under heavy contention</td>
+                        <td>Pessimistic Locking, or CAS for simple atomic updates</td>
+                    </tr>
+                    <tr>
+                        <td><strong><code>volatile</code></strong> (visibility only)</td>
+                        <td>Avoids full locking overhead when mutual exclusion isn't needed, just visibility</td>
+                        <td>When you also need atomic multi-step updates (visibility alone isn't enough)</td>
+                        <td>Doesn't prevent race conditions on compound operations (e.g., check-then-act)</td>
+                        <td><code>synchronized</code>, or <code>AtomicInteger</code>/CAS for atomic single-variable updates</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Global lock ordering</strong> (deadlock avoidance)</td>
+                        <td>Structurally eliminates ordering-based deadlocks</td>
+                        <td>Adds a small bookkeeping/sorting cost per transaction</td>
+                        <td>Requires discipline across <em>all</em> code paths that acquire multiple locks — one missed spot reintroduces risk</td>
+                        <td>Lock-free / CAS-based approaches where feasible</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Routing internal service calls through a shared gateway</strong></td>
+                        <td>Architectural simplicity (one proxy layer)</td>
+                        <td>High-load systems where internal calls loop back through the same bounded resource pool</td>
+                        <td>Load-induced deadlock risk</td>
+                        <td>Bypass the gateway for internal calls, or reserve dedicated pool capacity for them</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <hr>
+
+            <h2 id="production-perspective">5. Production System Perspective</h2>
+            
+            <ul>
+                <li><strong>E-commerce flash sales (Amazon-style)</strong>: exactly the transcript's own inventory example — high-contention products (a doorbuster deal) are natural candidates for <strong>pessimistic locking</strong>, while low-demand catalog items are far better served by <strong>optimistic locking</strong>, since contention there is naturally low.</li>
+                <li><strong>Cassandra / DynamoDB (NoSQL, no full transactions)</strong>: rely on CAS-based "lightweight transactions" (<code>IF</code> conditions on writes) as their primary atomicity mechanism — directly matching the transcript's Cassandra example, and a real reason engineers choose or avoid these databases for workloads with heavy contention.</li>
+                <li><strong>Microservices gateways (e.g., an API gateway in front of dozens of services)</strong>: the load-induced deadlock scenario described is a well-known real-world failure pattern — services calling each other back through a shared ingress gateway under load is a recognized anti-pattern in production microservices architectures, exactly for the reason given.</li>
+                <li><strong><code>ConcurrentHashMap</code>-style structures across ecosystems</strong>: lock striping isn't Java-specific — Go's <code>sync.Map</code>, and sharded-lock designs in high-throughput caches (e.g., internal designs at companies like LinkedIn/Twitter for in-memory counters) use the same partitioned-lock idea to avoid one giant global lock.</li>
+            </ul>
+
+            <hr>
+
+            <h2 id="system-design">6. System Design Perspective</h2>
+            
+            <ul>
+                <li><strong>Scalability</strong>: understanding Amdahl's Law tells you the <em>ceiling</em> of what adding more compute can achieve for a given codebase — if your serial portion is 25%, no amount of horizontal or vertical scaling will get you meaningfully more throughput; you must first shrink the serial portion.</li>
+                <li><strong>Reliability</strong>: load-induced deadlocks are a direct reliability risk — a system that works fine in staging can completely lock up in production the moment traffic crosses a threshold, with no code change and no warning from lower-load testing.</li>
+                <li><strong>Observability</strong>: coherence costs and lock contention are largely invisible in typical dashboards (CPU/memory/network look "fine") — you need thread-dump analysis or profiler-level visibility to detect these, which has real implications for what your monitoring stack needs to expose.</li>
+                <li><strong>If you ignore this concept entirely</strong>: you'll add hardware/threads expecting proportional gains, watch throughput flatten (or even fall) unexpectedly, and have no framework to diagnose <em>why</em> — mistaking a fundamentally structural (serial-portion or coherence) problem for a capacity problem, and spending money that doesn't fix anything.</li>
+            </ul>
+
+            <hr>
+
+            <h2 id="performance-analysis">7. Performance Analysis</h2>
+            
+            <ul>
+                <li><strong>Lock duration vs. contention</strong>: the <em>duration</em> a lock is held matters as much as <em>how often</em> it's requested — a rarely-requested but long-held lock can still cause severe contention, which is exactly why "reduce lock duration" is the first lever discussed for minimizing lock contention.</li>
+                <li><strong>Thread pool size vs. wait-time ratio</strong>: the optimal thread pool size is a direct function of the ratio between wait time (I/O-bound work) and CPU time (compute-bound work) per request — this is measurable via load testing and should be re-validated whenever a service's downstream call pattern changes.</li>
+                <li><strong>Coherence cost in absolute terms</strong>: a ~100ns main-memory access versus ~0.5-7ns cache access means coherence-forced reads are consistently over an order of magnitude slower — in a tight loop with frequent shared-variable access, this adds up fast and is a common, hard-to-spot source of throughput ceiling in multi-threaded code.</li>
+                <li><strong>Optimistic locking retry cost</strong>: the "cost" of optimistic locking under contention isn't linear — it's the <em>combination</em> of (a) redone processing work and (b) increased contention <em>for the retry itself</em>, which is why the pessimistic/optimistic crossover point in practice tends to happen more abruptly than intuition suggests.</li>
+            </ul>
+
+            <hr>
+
+            <h2 id="real-world-examples">8. Real-World Architecture Examples</h2>
+            
+            <p><strong>1. Flash-sale checkout for a single hot product (high contention)</strong></p>
+            <ul>
+                <li>Problem: thousands of concurrent buyers competing for the same limited inventory row.</li>
+                <li>Why pessimistic locking is the right choice here: with contention this high, optimistic locking would cause a storm of failed verifications and wasted, repeated processing — pessimistic locking's serialized-but-guaranteed-forward-progress behavior is actually more efficient in aggregate.</li>
+                <li>Trade-off accepted: much lower parallelism during the sale window.</li>
+                <li>Alternative considered and rejected: optimistic locking (too many retries under this contention level) or CAS-only (works for a simple counter decrement, but this workflow needs multi-step processing — pricing, delivery estimate — that CAS alone can't atomically wrap).</li>
+            </ul>
+
+            <p><strong>2. General catalog browsing/ordering across thousands of low-demand SKUs (low contention)</strong></p>
+            <ul>
+                <li>Problem: same inventory-update code path as above, but for products where two people almost never buy the last unit simultaneously.</li>
+                <li>Why optimistic locking is the right choice here: contention is low, so retries are rare — most transactions succeed on the first pass with minimal locking overhead, maximizing throughput.</li>
+                <li>Trade-off accepted: rare wasted work on the (uncommon) collision.</li>
+                <li>Failure scenario if pessimistic locking were used instead: unnecessary serialization of the vast majority of orders that never actually conflict — wasted throughput for no correctness benefit.</li>
+            </ul>
+
+            <p><strong>3. Microservices gateway under Black-Friday-scale traffic (load-induced deadlock risk)</strong></p>
+            <ul>
+                <li>Problem: Service A calls Service B through the same shared API gateway used for all external traffic; under peak load, the gateway's thread pool is fully consumed by inbound external requests before Service A's internal calls to Service B can get a thread.</li>
+                <li>Why this architecture existed originally: simplicity of having one ingress/proxy layer for everything.</li>
+                <li>Trade-off exposed under load: the entire system can seize up — not due to a code bug, but due to structural resource-pool self-reference under high concurrency.</li>
+                <li>Fix and its trade-off: dedicating separate connection/thread capacity for internal service-to-service calls (or bypassing the gateway internally) avoids the deadlock, at the cost of additional infrastructure/config complexity and losing some of the "one gateway to rule them all" simplicity.</li>
+            </ul>
+
+            <hr>
+
+            <h2 id="architecture-diagrams">9. Architecture Diagrams</h2>
+            
+            <p><strong>Amdahl's Law — throughput ceiling by serial %:</strong></p>
+<pre><code>Throughput
+    |
+    |          _______________________  &lt;- 5% serial (high ceiling)
+    |        /
+    |      /       ____________________ &lt;- 10% serial (lower ceiling, flattens sooner)
+    |    /       /
+    |  /      /            ____________ &lt;- 25% serial (very low ceiling)
+    |/      /            /
+    |_____________________________________________ &lt;- 50% serial (nearly flat throughout)
+    +---------------------------------------------&gt; Number of Processors</code></pre>
+
+            <p><strong>Gunther's Law — the coherence "retrograde" curve Amdahl's Law can't show:</strong></p>
+<pre><code>Throughput
+    |        ____
+    |      /      \
+    |    /          \___
+    |  /                 \___   &lt;- throughput DECREASES past a point
+    |/                        \___
+    +---------------------------------------&gt; Number of Threads / Processors
+                (queuing flattens it, coherence turns it downward)</code></pre>
+
+            <p><strong>Pessimistic vs. Optimistic Locking (lock duration comparison):</strong></p>
+<pre><code>PESSIMISTIC:
+[LOCK]fetch---process---update---commit---[UNLOCK]
+ &lt;---------------- long lock duration ----------------&gt;
+
+OPTIMISTIC:
+ fetch---process---[LOCK]--verify--update--commit--[UNLOCK]
+                    &lt;--- short lock duration ---&gt;
+                    (fails verification? -&gt; back off, restart from "fetch")</code></pre>
+
+            <p><strong>Lock-ordering deadlock (and its fix):</strong></p>
+<pre><code>WITHOUT global order (deadlock):
+T1: lock(X) -&gt; wants lock(Y)  ---\
+T2: lock(Y) -&gt; wants lock(X)  ---/---&gt; circular wait, DEADLOCK
+
+WITH global order (fixed, e.g. always lock lower ID first):
+T1: lock(X) -&gt; lock(Y) -&gt; done
+T2: waits for X (blocked, but NOT deadlocked) -&gt; gets X after T1 -&gt; lock(Y) -&gt; done</code></pre>
+
+            <p><strong>Load-induced deadlock:</strong></p>
+<pre><code>Gateway thread pool = 10 threads
+
+10 external requests --&gt; consume all 10 gateway threads
+                                |
+                                v
+Service 1 needs to call Service 2 via the SAME gateway
+                                |
+                                v
+No free gateway threads remain --&gt; internal call blocks FOREVER
+(blocked request can only finish once its own internal call succeeds — circular)</code></pre>
+
+            <p><strong>Coherence — cache vs. main memory:</strong></p>
+<pre><code>CPU 1                          CPU 2
+[L1/L2 cache: ~0.5-7ns]        [L1/L2 cache: ~0.5-7ns]
+        \                          /
+         \                        /
+          [ Main Memory: ~100ns ]   &lt;- synchronized/volatile FORCES traffic here</code></pre>
+
+            <hr>
+
+            <h2 id="interview-questions">10. Interview Questions</h2>
+            
+            <p><strong>Basic</strong></p>
+            <ol>
+                <li><em>What does Amdahl's Law tell us about adding more processors to a system with a serial code portion?</em><br>
+                → No matter how small the serial portion is, throughput will eventually flatten completely as you add processors — the serial fraction sets a hard ceiling on maximum achievable speedup.</li>
+                <li><em>What's the fundamental difference between pessimistic and optimistic locking?</em><br>
+                → Pessimistic locking takes a lock immediately and holds it for the whole transaction (safe, low parallelism, no wasted work). Optimistic locking does the work without a lock and only briefly locks + verifies at update time (high parallelism, but must restart on a failed verification).</li>
+                <li><em>What is a deadlock, and name the two categories discussed in this module.</em><br>
+                → A state where two or more threads are each waiting on a resource the other holds, so neither can ever proceed. The two categories: lock-ordering deadlocks (circular lock acquisition order) and load-induced/request-load deadlocks (a bounded resource pool gets self-referentially exhausted under high load).</li>
+            </ol>
+
+            <p><strong>Intermediate</strong></p>
+            <ol start="4">
+                <li><em>A team observes that their multi-threaded service's throughput actually *decreases* as they add more threads, beyond a certain point. Amdahl's Law alone can't explain this — why not, and what does?</em><br>
+                → Amdahl's Law only models queuing from serial code portions, which can flatten throughput but mathematically cannot make it decrease. A decreasing throughput curve is the signature of <strong>coherence overhead</strong> (Gunther's Universal Scalability Law) — the cost of keeping shared, frequently-modified data consistent across CPU caches grows disproportionately as concurrency increases, eventually outweighing the benefit of added parallelism.</li>
+                <li><em>When would you choose optimistic locking over pessimistic locking, and what's the risk if you choose wrong?</em><br>
+                → Choose optimistic locking when contention is low-to-moderate — most transactions succeed without retry, giving high parallelism. If contention is actually high and you chose optimistic locking anyway, you'll see a storm of failed verifications and wasted, repeatedly-redone work, which can perform <em>worse</em> than pessimistic locking would have.</li>
+                <li><em>Explain how Compare-And-Swap (CAS) relates to optimistic locking.</em><br>
+                → CAS is the hardware-level mechanism that implements optimistic locking's "verify-then-update" step atomically — it checks whether the current value still matches an expected old value, and only updates (and returns true) if so; otherwise it fails (returns false) without modifying anything, letting the caller retry with fresh data.</li>
+            </ol>
+
+            <p><strong>Advanced</strong></p>
+            <ol start="7">
+                <li><em>A microservices system works fine in staging and load testing at low traffic, but completely locks up during a real traffic spike. Post-incident, you find Service A calls Service B through the same shared API gateway used for all inbound traffic. Explain the failure mechanism and the fix.</em><br>
+                → This is a load-induced deadlock: at low load, spare gateway threads are available for Service A's internal call to Service B, so nothing appears wrong. At high load, all gateway threads get consumed by the initial batch of external requests before those requests' internal (looped-back) calls can get a thread — so the internal calls block forever waiting for gateway capacity that only frees up once those same blocked requests complete. Fix: don't route internal service-to-service calls through the same bounded resource pool as external traffic — either call directly or reserve dedicated capacity for internal calls.</li>
+                <li><em>Why does <code>volatile</code> in Java not fully solve concurrency correctness issues, even though it guarantees visibility?</em><br>
+                → <code>volatile</code> guarantees that reads/writes go through main memory (visibility across threads), but it does <strong>not</strong> provide mutual exclusion/atomicity for compound operations (e.g., "read, then modify, then write" as a single logical step). Two threads can both see the current value correctly via <code>volatile</code>, yet still race on a check-then-act sequence and produce a lost update — for that, you need <code>synchronized</code> or an atomic/CAS-based construct.</li>
+                <li><em>Design a locking strategy for an inventory system that has both a handful of extremely hot, high-demand products and thousands of low-demand catalog items sharing the same code path. What would you do, and why?</em><br>
+                → Use lock striping / per-product granularity so that contention on one hot product's lock doesn't block unrelated products at all (avoids one item behaving like Amdahl's "serial portion" for the whole system). For the hot products specifically, apply pessimistic locking given their proven high contention; for the long tail of low-demand items, apply optimistic locking (via CAS-style conditional updates) since contention there is naturally low and you want maximum parallel throughput. This is effectively choosing the locking strategy <em>per resource</em>, based on its actual measured contention level, rather than picking one strategy globally.</li>
+            </ol>
+
+            <hr>
+
+            <h2 id="common-mistakes">11. Common Mistakes & Misconceptions</h2>
+            
+            <ul>
+                <li><strong>"Adding more threads/processors always increases throughput."</strong> Wrong — Amdahl's Law caps the maximum possible gain based on the serial portion of code, and Gunther's Law shows throughput can even <em>decrease</em> past a point due to coherence overhead.</li>
+                <li><strong>"Optimistic locking is always better because it doesn't block."</strong> Wrong — under high contention, optimistic locking causes excessive wasted, repeated work from failed verifications, and can underperform pessimistic locking.</li>
+                <li><strong>"<code>volatile</code> is basically a lightweight replacement for <code>synchronized</code>."</strong> Wrong — <code>volatile</code> only guarantees visibility, not atomicity for compound operations; using it where atomic check-then-act logic is needed introduces race conditions.</li>
+                <li><strong>"If it passed load testing, it won't deadlock in production."</strong> Wrong — load-induced deadlocks are specifically load-dependent and can be completely invisible below a certain traffic threshold, then appear suddenly at higher load.</li>
+                <li><strong>"A small serial portion (like 5%) barely matters."</strong> Wrong — even a small serial fraction imposes a hard ceiling on maximum achievable speedup (per Amdahl's Law); it may just take more processors to hit that ceiling.</li>
+                <li><strong>"Lock striping always gives you N times the throughput for N partitions."</strong> Wrong — it only helps proportionally if access is evenly distributed across partitions; a "hot" partition still bottlenecks like a serial portion would.</li>
+                <li><strong>"Coherence problems will show up clearly in CPU/memory dashboards."</strong> Wrong — coherence costs are often invisible in standard monitoring; they require deeper, thread/cache-level profiling to detect.</li>
+            </ul>
+
+            <hr>
+
+            <h2 id="connections">12. Connections to Other Architecture Topics</h2>
+            
+<pre><code>Concurrency's Two Enemies
+        |
+        ├── Queuing (Amdahl's Law) ──&gt; Thread pool sizing ──&gt; Listen queue behavior
+        |                           ──&gt; Lock duration/splitting/striping
+        |                           ──&gt; Pessimistic vs. Optimistic Locking ──&gt; Compare-And-Swap
+        |                           ──&gt; Deadlocks (ordering-based AND load-induced)
+        |
+        └── Coherence (Gunther's Law) ──&gt; synchronized vs. volatile ──&gt; Cache/main-memory latency
+                                                                       (ties back to Memory Latency, prior notes)
+
+Both enemies connect forward to:
+  --&gt; Caching (final Module 1 topic, not yet covered — caching reduces how often shared/expensive
+      resources are touched at all, indirectly reducing both queuing AND coherence pressure)
+  --&gt; Module 2: Scalability (replication, partitioning, load balancing — the multi-machine
+      answer to problems that single-machine concurrency tuning can no longer solve once
+      you've hit Amdahl's ceiling on one box)
+  --&gt; Module 3: Reliability (load-induced deadlocks are a direct precursor to the cascading-failure
+      and circuit-breaker discussions in that module)</code></pre>
+
+            <p>This concurrency arc is really the second half of a single story that started with "queue buildup" in the very first lecture: efficiency (previous notes) minimized how long <em>one</em> request takes; concurrency (this notes set) is about what happens the instant <em>multiple</em> requests have to share the same locks, threads, connections, and CPU caches — and why "just add more of everything" is never a free lunch.</p>
+        </div>
+    </main>
+
+</body>
+</html>
