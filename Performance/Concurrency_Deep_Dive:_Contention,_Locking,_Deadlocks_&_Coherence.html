@@ -570,27 +570,28 @@ T2: locks Y, then wants X
             <p><strong>Mechanism:</strong> each CPU core has its own L1/L2 cache. If a variable/object is shared across threads running on different cores, and it's <strong>not</strong> guarded (no <code>synchronized</code>/<code>volatile</code> in Java), each core may hold its <strong>own stale copy</strong> in its cache — a change made on one core is <strong>not guaranteed</strong> to become visible to another core at all, let alone promptly. This can cause genuine correctness bugs (e.g., a "stop" flag set by one thread that another thread never sees).</p>
 
             <p><strong>Two fixes, with different cost profiles:</strong></p>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Mechanism</th>
-                        <th>Guarantees</th>
-                        <th>Cost</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td><code>synchronized</code></td>
-                        <td>Both mutual exclusion (locking) <strong>and</strong> visibility</td>
-                        <td>Full locking overhead + main-memory read/write cost</td>
-                    </tr>
-                    <tr>
-                        <td><code>volatile</code></td>
-                        <td>Visibility <strong>only</strong> (no mutual exclusion)</td>
-                        <td>Skips locking overhead, but <strong>still</strong> pays the main-memory read/write cost</td>
-                    </tr>
-                </tbody>
-            </table>
+
+<table>
+    <thead>
+        <tr>
+            <th>Mechanism</th>
+            <th>What it Guarantees</th>
+            <th>Performance Cost</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><code>synchronized</code></td>
+            <td>Only one thread can access the code at a time, and every thread sees the latest value.</td>
+            <td>Higher cost because threads may have to wait for the lock.</td>
+        </tr>
+        <tr>
+            <td><code>volatile</code></td>
+            <td>Every thread always sees the latest value, but multiple threads can access it simultaneously.</td>
+            <td>Lower cost since there is no locking, but reading/writing is still slower than a normal variable.</td>
+        </tr>
+    </tbody>
+</table>
 
             <p><strong>Why this cost is real and significant:</strong> L1/L2 cache access is roughly <strong>0.5–7 nanoseconds</strong>; main memory access is roughly <strong>100 nanoseconds</strong> — about <strong>14–15x slower</strong>. Every time coherence forces a read/write to go through main memory instead of a fast local cache, you're paying that full penalty.</p>
 
