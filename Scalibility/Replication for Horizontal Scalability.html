@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Replication for Horizontal Scalability</title>
+    <style>
+        :root {
+            --sidebar-bg: #0f172a;
+            --sidebar-hover: #1e293b;
+            --sidebar-text: #94a3b8;
+            --sidebar-text-hover: #f8fafc;
+            --bg-color: #f1f5f9;
+            --card-bg: #ffffff;
+            --text-main: #334155;
+            --heading-color: #0f172a;
+            --primary-accent: #2563eb;
+            --code-bg: #1e293b;
+            --code-text: #e2e8f0;
+            --inline-code-bg: #e2e8f0;
+            --inline-code-text: #b91c1c;
+            --border-color: #e2e8f0;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            line-height: 1.7;
+        }
+
+        /* Sidebar Navigation */
+        .sidebar {
+            width: 280px;
+            height: 100vh;
+            background-color: var(--sidebar-bg);
+            position: fixed;
+            top: 0;
+            left: 0;
+            overflow-y: auto;
+            padding: 2rem 1rem;
+            box-sizing: border-box;
+            border-right: 1px solid #1e293b;
+        }
+
+        .sidebar h2 {
+            color: #ffffff;
+            font-size: 1.2rem;
+            margin-bottom: 1.5rem;
+            padding-left: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .sidebar ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .sidebar li {
+            margin-bottom: 0.5rem;
+        }
+
+        .sidebar a {
+            display: block;
+            padding: 0.75rem 1rem;
+            color: var(--sidebar-text);
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .sidebar a:hover {
+            background-color: var(--sidebar-hover);
+            color: var(--sidebar-text-hover);
+            padding-left: 1.25rem;
+        }
+
+        /* Main Content Area */
+        .content-wrapper {
+            margin-left: 280px;
+            padding: 3rem 5%;
+            width: calc(100% - 280px);
+            box-sizing: border-box;
+        }
+
+        .content {
+            background: var(--card-bg);
+            padding: 3rem 4rem;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        /* Typography */
+        h1, h2, h3, h4 {
+            color: var(--heading-color);
+            margin-top: 2.5rem;
+            margin-bottom: 1rem;
+            font-weight: 700;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-top: 0;
+            padding-bottom: 1rem;
+            border-bottom: 3px solid var(--primary-accent);
+        }
+
+        h2 {
+            font-size: 1.8rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-top: 1rem;
+        }
+
+        h3 {
+            font-size: 1.4rem;
+            color: var(--primary-accent);
+        }
+
+        h4 {
+            font-size: 1.1rem;
+            color: var(--heading-color);
+        }
+
+        p {
+            margin-bottom: 1.2rem;
+        }
+
+        strong {
+            color: var(--heading-color);
+        }
+
+        /* Code Blocks */
+        pre {
+            background-color: var(--code-bg);
+            color: var(--code-text);
+            padding: 1.5rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: 'Fira Code', 'Courier New', Courier, monospace;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        code {
+            background-color: var(--inline-code-bg);
+            color: var(--inline-code-text);
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-family: 'Fira Code', 'Courier New', Courier, monospace;
+            font-size: 0.9em;
+        }
+
+        pre code {
+            background-color: transparent;
+            color: inherit;
+            padding: 0;
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 2rem 0;
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        th, td {
+            padding: 1rem;
+            text-align: left;
+            border: 1px solid var(--border-color);
+            vertical-align: top;
+        }
+
+        th {
+            background-color: #f8fafc;
+            color: var(--heading-color);
+            font-weight: 600;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f8fafc;
+        }
+
+        /* Lists */
+        ul, ol {
+            margin-bottom: 1.5rem;
+            padding-left: 2rem;
+        }
+
+        li {
+            margin-bottom: 0.5rem;
+        }
+
+        hr {
+            border: 0;
+            border-top: 1px solid var(--border-color);
+            margin: 2rem 0;
+        }
+
+        /* Callouts / Highlight Box */
+        .highlight-box {
+            background-color: #eff6ff;
+            border-left: 4px solid var(--primary-accent);
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 900px) {
+            .sidebar {
+                width: 100%;
+                height: auto;
+                position: relative;
+                padding: 1rem;
+            }
+            .content-wrapper {
+                margin-left: 0;
+                width: 100%;
+                padding: 1rem;
+            }
+            .content {
+                padding: 1.5rem;
+            }
+            h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Vertical Sidebar -->
+    <nav class="sidebar">
+        <h2>Contents</h2>
+        <ul>
+            <li><a href="#intro">Context & Scope</a></li>
+            <li><a href="#core-concept">1. Core Concept & Intuition</a></li>
+            <li><a href="#transcript-content">2. Transcript Content</a></li>
+            <li><a href="#deep-technical">3. Deep Technical Explanation</a></li>
+            <li><a href="#architecture-tradeoffs">4. Architecture Trade-offs</a></li>
+            <li><a href="#production-perspective">5. Production System Perspective</a></li>
+            <li><a href="#system-design">6. System Design Perspective</a></li>
+            <li><a href="#performance-analysis">7. Performance Analysis</a></li>
+            <li><a href="#real-world-examples">8. Real-World Architecture Examples</a></li>
+            <li><a href="#architecture-diagrams">9. Architecture Diagrams</a></li>
+            <li><a href="#interview-questions">10. Interview Questions</a></li>
+            <li><a href="#common-mistakes">11. Common Mistakes & Misconceptions</a></li>
+            <li><a href="#connections">12. Connections to Other Topics</a></li>
+        </ul>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="content-wrapper">
+        <div class="content">
+
+            <div id="intro">
+                <h1>Replication for Horizontal Scalability</h1>
+                <h2 style="margin-top: -10px; margin-bottom: 0.5rem;">Web, Service & Database Layers</h2>
+                
+                <div class="highlight-box">
+                    <p><strong>Syllabus scope:</strong> Replication → Stateful Web Replication → Stateless Web Replication → Stateless Service Replication → Database Replication → Database Replication Types.</p>
+                    <p><strong>Assumed baseline:</strong> Performance module (latency, caching fundamentals), Vertical vs Horizontal scaling, Reverse proxy, Scalability principles.</p>
+                    <p><strong>Deferred to later lectures (not deep-dived here):</strong> Cache-pattern taxonomy (cache-aside/write-through — see "Caching for scalability"), Database partitioning/sharding, Load balancer internals, Async/message-driven scalability, Microservices vertical partitioning.</p>
+                </div>
+                <hr>
+            </div>
+
+            <h2 id="core-concept">1. Core Concept & Intuition</h2>
+            
+            <h3>One-Sentence Definition</h3>
+            <p>Replication is the practice of running multiple identical copies of a system component (web tier, service tier, or database) so that load, and optionally data, is distributed across them — trading off a spectrum of consistency, complexity, and cost for horizontal scalability and availability.</p>
+
+            <h3>Why This Concept Exists</h3>
+            <p>Before replication, a system's only lever for handling more load was <strong>vertical scaling</strong> — bigger CPU, more RAM, faster disk on a single machine. That lever has a hard ceiling: hardware has physical and economic limits, and a single machine is a <strong>single point of failure (SPOF)</strong>. The industry needed a way to scale that (a) has no theoretical ceiling and (b) survives the loss of any one node. The answer was to stop relying on one instance and instead run <strong>N</strong> instances of the same component, splitting traffic among them. But the moment you have N instances instead of one, a new question appears: <em>does each instance need to remember anything about the client between requests?</em> That single question is what splits replication into <strong>stateful</strong> and <strong>stateless</strong> flavors, and it is the organizing idea of this entire lecture block.</p>
+
+            <h3>Architecture Analogy</h3>
+            <p>Think of a <strong>bank branch chain</strong>. A single branch (one instance) can only serve so many customers per hour before the queue backs up — that's vertical scaling maxing out. So the bank opens three branches (replication). Now: does a customer <em>have</em> to return to the exact same branch because their file is sitting in a drawer there (stateful — like a session pinned to Node 1)? Or does every branch have equal access to a <strong>central records vault</strong> (the database) or a <strong>shared drive-through folder cabinet</strong> (shared cache), so a customer can walk into <em>any</em> branch and be served identically (stateless)? The stateful branch is faster for repeat visits (the teller already has your folder on the desk) but breaks badly if that specific branch burns down — your open transaction data is gone. The stateless branches are slightly slower per visit (someone has to walk to the vault) but any branch survives the loss of any other.</p>
+
+            <h3>How a Real System Sees It</h3>
+            <p>Inside a production request:</p>
+            <ul>
+                <li>A <strong>Load Balancer</strong> sits in front of N web-tier instances and picks one to route to (round-robin, least-connections, or — in stateful architectures — <strong>sticky sessions</strong> keyed by a cookie).</li>
+                <li>The chosen <strong>web instance</strong> either serves from local memory (stateful) or hits a <strong>shared cache</strong> (Redis/Memcached) or goes straight to the <strong>service layer</strong>.</li>
+                <li>The <strong>service layer</strong>, itself replicated statelessly, does business logic and talks to the <strong>database</strong>.</li>
+                <li>The <strong>database layer</strong> is where real state lives permanently, and its replication topology (master-slave or master-master) determines the consistency and availability guarantees of the entire system above it.</li>
+            </ul>
+
+            <hr>
+
+            <h2 id="transcript-content">2. Transcript Content — The "What"</h2>
+            
+            <h3>2.1 Replication, defined</h3>
+            <p>Replication = running multiple instances of the same component. Two flavors:</p>
+            <ul>
+                <li><strong>Stateless replication</strong>: only <em>code</em> is replicated. No component-local data outlives a single request; any data generated is transient and scoped to that request.</li>
+                <li><strong>Stateful replication</strong>: both <em>code and data</em> are replicated/maintained per instance. State (e.g., a session) persists across requests on a specific instance.</li>
+            </ul>
+
+            <p><strong>Layer-by-layer defaults from the transcript:</strong></p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Layer</th>
+                        <th>Typical choice</th>
+                        <th>Why</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Web tier</td>
+                        <td>Stateless preferred; stateful only for extreme low-latency needs</td>
+                        <td>Simpler, more scalable, more reliable</td>
+                    </tr>
+                    <tr>
+                        <td>Service tier</td>
+                        <td>Stateless (near-always)</td>
+                        <td>Same reasoning as web tier; little motivation for stateful services</td>
+                    </tr>
+                    <tr>
+                        <td>Database tier</td>
+                        <td>Inherently stateful</td>
+                        <td>The database <em>is</em> the durable state — replication here is about durability &amp; read-scaling, not a stateless/stateful choice</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>2.2 Stateful Replication in the Web Layer</h3>
+            <p><strong>Problem it solves:</strong> Without any local caching, every request for e.g. a user profile requires: <code>Client → Web instance → Service → Database → Service → Web instance → Client</code>. Multiple network hops = high latency.</p>
+
+            <p><strong>Mechanism:</strong></p>
+            <ol>
+                <li>First request for user 101 arrives at, say, <strong>Node 1</strong> (arbitrarily chosen by the load balancer).</li>
+                <li>Node 1 fetches the profile from Service → Database, and <strong>before responding</strong>, stores the profile in a local in-memory <strong>session</strong> keyed by a session ID (e.g., <code>101</code>).</li>
+                <li>The response to the client includes a <strong>cookie</strong> carrying two pieces of information: the session ID (<code>101</code>) and the node identity (<code>Node 1</code>).</li>
+                <li>On subsequent requests, the <strong>load balancer reads the cookie</strong> and routes the client back to Node 1 specifically — this routing mechanism is called a <strong>sticky session</strong>.</li>
+                <li>Node 1 serves the request directly from memory — no service/database hop needed.</li>
+            </ol>
+
+            <p><strong>ASCII flow:</strong></p>
+<pre><code>First request:
+Client → LB → Node1(web) → Service → DB
+                 ↑ stores session{id:101, data:profile} in memory
+Client ← LB ← Node1 [Set-Cookie: session=101, node=1]
+
+Subsequent requests:
+Client [Cookie: session=101, node=1] → LB (reads cookie) → Node1 (routes here only)
+Client ← Node1 (served directly from memory, no Service/DB hop)</code></pre>
+
+            <p><strong>Two serious limitations (explicit in transcript):</strong></p>
+
+            <p><strong>a) Scalability limitation</strong> — memory-bound connection ceiling.<br>
+            Each session occupies a fixed chunk of memory (e.g., 1 MB). If a machine has 500 MB available for sessions, it can hold at most 500 concurrent sessions — <em>even if</em> its CPU/thread capacity could otherwise serve 2,000 simultaneous connections. To serve 2,000 clients you'd now need <strong>4 machines instead of 1</strong>, purely because of the session-memory ceiling, not actual compute capacity. This directly inflates infrastructure cost.</p>
+
+            <p><strong>b) Reliability limitation</strong> — node failure = data loss + latency spike.<br>
+            If Node 1 goes down:</p>
+            <ul>
+                <li>The load balancer must reroute the client to Node 2 or Node 3, neither of which has the cached profile.</li>
+                <li>That node must fall back to the full Service → Database path → <strong>latency spike</strong> for all users whose sessions lived on Node 1, until their data is re-cached.</li>
+                <li>Worse: if the user had made <strong>unsaved changes to session data that were never propagated to the database</strong>, those changes are <strong>permanently lost</strong> when Node 1 dies. The user sees stale/old data on their next request.</li>
+            </ul>
+
+            <p><strong>Mitigation mentioned:</strong> Application servers like <strong>WebLogic</strong> or <strong>WebSphere</strong> offer <em>clustered sessions</em> — session data is replicated to other nodes as changes happen, so a node failure can fail over to a node with a session copy. But this adds significant operational and execution complexity, and is explicitly called "a messy affair to handle" — <strong>not the preferred general approach</strong>.</p>
+
+            <p><strong>Explicit guidance:</strong> Go stateful <em>only</em> when latency requirements are extremely critical and outweigh the scalability/reliability costs.</p>
+
+            <h3>2.3 Stateless Replication in the Web Layer</h3>
+            <p><strong>Mechanism:</strong> No session data lives in web-instance memory at all. Every request — 1st, 2nd, or Nth — goes through the same path if data isn't cached elsewhere.</p>
+
+            <p><strong>Solving the resulting latency problem — two caching layers, not local memory:</strong></p>
+            <ol>
+                <li><strong>Shared server-side cache</strong> (Redis / Memcached): First request populates the cache after fetching from Service→DB. Subsequent requests — routed to <em>any</em> instance, no stickiness required — check the shared cache first. Cache hit avoids the DB round-trip. Slightly slower than local-memory (stateful) access, but far faster than hitting DB every time.</li>
+                <li><strong>Client-side cache (cookies):</strong> Small, user-specific data can be stored directly in the client's cookie and sent with every request, eliminating server-side lookups entirely for that data. Limited by cookie size constraints and added network cost per request — only viable for small, per-user data, not large or shared data.</li>
+            </ol>
+
+            <p><strong>ASCII flow:</strong></p>
+<pre><code>Request → LB → any Node (no stickiness needed)
+                  ↓ check shared cache (Redis/Memcached)
+             hit? → serve from cache
+             miss? → Service → DB → populate cache → serve</code></pre>
+
+            <p><strong>Why this is preferred:</strong></p>
+            <ul>
+                <li><strong>Scalability:</strong> No per-node memory ceiling tied to session count; any instance can serve any client.</li>
+                <li><strong>Reliability:</strong> If a web node dies, others continue serving unaffected — no data loss, since state lives in the shared cache/DB, not node memory. If the shared cache itself dies, nodes simply fall back to DB and repopulate the cache once it's back — graceful degradation, not data loss.</li>
+            </ul>
+
+            <p><strong>Explicit rule of thumb from the instructor:</strong> Default to stateless replication. Use stateful web replication only when latency requirements are extremely critical.</p>
+
+            <h3>2.4 Stateless Replication of Services</h3>
+            <p>The service tier follows the same reasoning as the web tier — stateless is the default, with a shared cache available for frequently-read, rarely-modified data.</p>
+
+            <p><strong>New nuance introduced here — the shared-resource/locking problem:</strong><br>
+            When a component was a single instance, concurrent threads on that one machine could synchronize using OS- or language-level locking primitives (mutexes, monitors, etc.) to safely coordinate access to a shared resource (e.g., a shared file).</p>
+
+            <p>Once that component is replicated across <strong>N separate instances/processes</strong>, in-process/OS-level locking <strong>no longer works</strong> — each instance has its own memory space and its own OS-level lock table; they can't see each other's locks.</p>
+
+            <p><strong>Solution pattern (explicit in transcript):</strong> Move the lock into a <strong>common external resource</strong> — typically a <strong>lock table in the database</strong>. A row is created representing the shared resource (e.g., the file); an instance takes a row-level lock (e.g., via a transaction), performs the modification, and commits — releasing the lock for the next instance to acquire.</p>
+
+<pre><code>Instance A                  DB (lock table)              Instance B
+   |-- BEGIN, lock row F ------&gt;|                             |
+   |   (modify shared file)     |                              |
+   |-- COMMIT (release lock) --&gt;|                              |
+                                 |&lt;---- BEGIN, lock row F ------|
+                                 |                    (modify)  |
+                                 |&lt;---- COMMIT (release) -------|</code></pre>
+
+            <p>This is a direct, practical consequence of replication that's easy to overlook: <strong>replicating a component can silently break existing concurrency-control assumptions</strong>, and you must re-architect synchronization around a shared, externally visible resource.</p>
+
+            <h3>2.5 Database Replication — Overview</h3>
+            <p>Unlike the web/service tiers, the database is inherently stateful — replication here is about <strong>durability, read-scalability, and availability</strong>, not a stateless/stateless choice.</p>
+
+            <p><strong>Two things replication achieves at the DB layer:</strong></p>
+            <ol>
+                <li><strong>Read replicas</strong> for high read scalability — offload read traffic from the primary so it can focus on writes (and remaining reads).</li>
+                <li><strong>Backup replicas</strong> for high availability — if the primary (master) dies, a backup can be <strong>promoted</strong> to become the new master, preserving write availability.</li>
+            </ol>
+
+            <p><strong>Typical real-world topology (explicit in transcript):</strong> One master + several asynchronous read replicas (for scale) + one synchronous backup replica (for zero-data-loss failover).</p>
+
+            <h3>2.6 Database Replication Types — Master-Slave vs Master-Master</h3>
+
+            <h4>Master-Slave (Primary-Secondary)</h4>
+            <ul>
+                <li><strong>Writes:</strong> only to master. <strong>Reads:</strong> master or any slave/secondary.</li>
+                <li>Replication is <strong>unidirectional</strong>: master → slave(s).</li>
+                <li>Two sync modes:</li>
+            </ul>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Property</th>
+                        <th>Asynchronous</th>
+                        <th>Synchronous</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Write acknowledged when...</td>
+                        <td>committed on master only</td>
+                        <td>committed on <strong>both</strong> master and secondary</td>
+                    </tr>
+                    <tr>
+                        <td>Write latency</td>
+                        <td>Lower</td>
+                        <td>Higher</td>
+                    </tr>
+                    <tr>
+                        <td>Consistency</td>
+                        <td>Eventually consistent (secondary can lag/serve stale reads)</td>
+                        <td>Strongly consistent (always in sync at commit time)</td>
+                    </tr>
+                    <tr>
+                        <td>Failure mode if master dies</td>
+                        <td>Un-propagated changes are <strong>lost</strong> when secondary is promoted</td>
+                        <td>No data loss on failover</td>
+                    </tr>
+                    <tr>
+                        <td>Failure mode if secondary dies</td>
+                        <td>Writes continue fine on master (secondary catches up later)</td>
+                        <td><strong>Writes become unavailable</strong> — master can't complete a transaction that requires secondary ack</td>
+                    </tr>
+                    <tr>
+                        <td>Typical use</td>
+                        <td>Read replicas (scale reads, tolerate slight staleness)</td>
+                        <td>Backup replica (zero data loss, accept write-availability risk)</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <p><strong>Practical pattern:</strong> several <strong>async</strong> read replicas (for scale) + one <strong>sync</strong> backup replica (for safe failover) — this is exactly the topology described in §2.5.</p>
+
+            <p><strong>Why master-slave is popular:</strong> There is only <strong>one source of truth</strong> (master) — slaves must simply converge to master's state. This structurally <strong>eliminates write conflicts</strong>, which is the single biggest reason this configuration dominates in practice.</p>
+
+            <h4>Master-Master (Peer-to-Peer / No-Master)</h4>
+            <ul>
+                <li><strong>Reads and writes</strong> allowed on <strong>either</strong> instance.</li>
+                <li>Replication is <strong>bidirectional</strong>, most commonly <strong>asynchronous</strong>.</li>
+                <li><strong>Core risk — write conflicts:</strong> if the same record is modified on both instances around the same time, reconciliation produces a conflict that must be resolved via explicit business rules (last-write-wins, merge logic, etc.) — non-trivial and error-prone.</li>
+                <li><strong>Secondary risk — transaction ordering:</strong> clock skew between instances (which can never be fully eliminated) can cause ambiguity in the order in which concurrent transactions should be reconciled.</li>
+                <li><strong>Why it's used anyway — geo-distributed low-latency writes:</strong> if users are split across regions (e.g., North America and AsiaPac), master-slave would force <em>all</em> writes to a single region's master, giving one region great latency and the other region poor latency (extra network hop across continents). Master-master lets each region write to its local instance with low latency, at the cost of needing conflict-resolution logic.</li>
+                <li><strong>Availability:</strong> doesn't matter which instance goes down — reads/writes continue on the other. Higher availability than master-slave in that specific sense.</li>
+            </ul>
+
+            <p><strong>Comparison table:</strong></p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Dimension</th>
+                        <th>Master-Slave</th>
+                        <th>Master-Master</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Write path</td>
+                        <td>Single master only</td>
+                        <td>Any instance</td>
+                    </tr>
+                    <tr>
+                        <td>Write conflicts</td>
+                        <td>Impossible (single source of truth)</td>
+                        <td>Possible — must be explicitly resolved</td>
+                    </tr>
+                    <tr>
+                        <td>Popularity</td>
+                        <td>High (simple, safe)</td>
+                        <td>Low (used for specific geo use case)</td>
+                    </tr>
+                    <tr>
+                        <td>Best for</td>
+                        <td>General-purpose read scaling + backup/HA</td>
+                        <td>Globally distributed users needing low-latency local writes</td>
+                    </tr>
+                    <tr>
+                        <td>Ordering guarantees</td>
+                        <td>Trivial (single writer)</td>
+                        <td>Non-trivial (clock skew across peers)</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <hr>
+
+            <h2 id="deep-technical">3. Deep Technical Explanation</h2>
+
+            <h3>3.1 Why sticky sessions are structurally fragile</h3>
+            <p>A sticky session couples <strong>routing correctness</strong> to <strong>node liveness</strong>. The load balancer's routing decision (via cookie) is a <em>promise</em> that a specific node holds specific data — but that promise has no built-in expiry-on-failure mechanism. When the node dies, the promise silently becomes false, and the system has no way to know what data was lost until a user complains about missing changes. This is a classic <strong>implicit coupling</strong> failure: two independent concerns (load balancing and data locality) were merged into one mechanism (the cookie), and the failure mode of one now cascades into the other.</p>
+
+            <h3>3.2 Why "eventually consistent" async replication is not a bug, it's a deliberate trade</h3>
+            <p>Asynchronous master-slave replication commits on the master first, propagates later. During the propagation window, reads from the slave can return <strong>stale</strong> data. This is not a design flaw — it's the direct, unavoidable consequence of decoupling write-latency from replication-latency. You cannot have (a) low write latency, (b) strong read consistency across replicas, and (c) high write availability during partial failures, simultaneously — this is a concrete instance of trade-offs formalized by the <strong>CAP theorem</strong> and, for the latency dimension specifically, <strong>PACELC</strong> (if Partitioned, choose Availability or Consistency; Else, choose Latency or Consistency).</p>
+
+            <h3>3.3 Why synchronous replication trades availability, not just latency</h3>
+            <p>It's tempting to think synchronous replication is "just slower." In fact it changes an <strong>availability</strong> property: because commit success requires <strong>both</strong> nodes to acknowledge, the health of the secondary becomes a hard dependency for <strong>every write</strong>, not just for reads. A single-node failure (the secondary) now blocks 100% of write traffic even though the master is perfectly healthy. This is the crux of the trade-off described in the transcript, and it's why synchronous mode is reserved narrowly for a backup pair, not fanned out across many read replicas — every synchronous replica you add multiplies the number of independent failure points that can block writes.</p>
+
+            <h3>3.4 Why replicating a stateless component isn't "free" — the hidden coordination cost</h3>
+            <p>Stateless replication removes <em>session</em> state, but it does not remove <em>shared resource</em> state (files, counters, external systems). The transcript's file-locking example shows the hidden cost: replication converts an <strong>intra-process concurrency problem</strong> (solvable with cheap in-memory locks) into a <strong>distributed concurrency problem</strong> (requiring an external, shared arbiter like a DB lock table). This is strictly more expensive: a DB row lock involves a network round trip and transactional overhead, versus a few CPU cycles for an in-memory mutex. Anyone claiming "we went stateless, so we have no consistency problems" is ignoring this class of issue.</p>
+
+            <h3>3.5 Failure cases and hidden complexity summary</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Component</th>
+                        <th>Failure scenario</th>
+                        <th>Consequence</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Stateful web node</td>
+                        <td>Node crash</td>
+                        <td>Data loss for un-persisted session changes + latency spike for orphaned sessions</td>
+                    </tr>
+                    <tr>
+                        <td>Shared cache (Redis/Memcached)</td>
+                        <td>Cache node/cluster down</td>
+                        <td>Graceful degradation — DB becomes source of truth again, cache warms back up</td>
+                    </tr>
+                    <tr>
+                        <td>Async master-slave</td>
+                        <td>Master crash before propagation</td>
+                        <td>Permanent loss of un-replicated writes</td>
+                    </tr>
+                    <tr>
+                        <td>Sync master-slave</td>
+                        <td>Secondary crash</td>
+                        <td>Write unavailability on an otherwise-healthy master</td>
+                    </tr>
+                    <tr>
+                        <td>Master-master</td>
+                        <td>Concurrent writes to same record</td>
+                        <td>Write conflict requiring resolution logic; possible silent data corruption if rules are incomplete</td>
+                    </tr>
+                    <tr>
+                        <td>Replicated service + shared file</td>
+                        <td>Concurrent instance writes without DB lock table</td>
+                        <td>Race condition / corrupted shared resource</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <hr>
+
+            <h2 id="architecture-tradeoffs">4. Architecture Trade-offs — The "Why"</h2>
+
+            <h3>Stateful vs Stateless Web Replication</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th>Stateful</th>
+                        <th>Stateless</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Choose when</td>
+                        <td>Ultra-low latency is a hard requirement and outweighs cost/risk</td>
+                        <td>Default choice for almost everything</td>
+                    </tr>
+                    <tr>
+                        <td>Avoid when</td>
+                        <td>You need elastic scaling, simple ops, or high reliability</td>
+                        <td>Rarely a reason to avoid — nearly always safe default</td>
+                    </tr>
+                    <tr>
+                        <td>Problems introduced</td>
+                        <td>Memory-bound scaling ceiling, data loss on node failure, sticky-session complexity, clustering complexity if mitigated</td>
+                        <td>Slightly higher per-request latency (cache/DB hop)</td>
+                    </tr>
+                    <tr>
+                        <td>Alternative designs</td>
+                        <td>Clustered sessions (WebLogic/WebSphere), external session store (effectively converts to stateless-with-cache)</td>
+                        <td>N/A — this <em>is</em> the alternative</td>
+                    </tr>
+                    <tr>
+                        <td>How FAANG-scale systems solve it</td>
+                        <td colspan="2">Almost universally stateless web/service tiers backed by a fast shared cache (Redis clusters) — session affinity is avoided specifically because it breaks elastic autoscaling</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Asynchronous vs Synchronous Master-Slave Replication</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th>Asynchronous</th>
+                        <th>Synchronous</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Choose when</td>
+                        <td>Read scaling, low-latency reads/writes acceptable staleness</td>
+                        <td>Zero data-loss tolerance for a backup instance</td>
+                    </tr>
+                    <tr>
+                        <td>Avoid when</td>
+                        <td>You need a guaranteed zero-loss failover target</td>
+                        <td>You need many replicas or low write latency at scale</td>
+                    </tr>
+                    <tr>
+                        <td>Problems introduced</td>
+                        <td>Possible stale reads, possible data loss on master failure</td>
+                        <td>Write unavailability if any sync replica is down; higher write latency</td>
+                    </tr>
+                    <tr>
+                        <td>Alternative designs</td>
+                        <td colspan="2">Quorum-based replication (write succeeds if majority of replicas ack — used by systems like Cassandra/DynamoDB) softens the all-or-nothing trade-off</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Master-Slave vs Master-Master</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th>Master-Slave</th>
+                        <th>Master-Master</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Choose when</td>
+                        <td>Single-region or single-source-of-truth workloads; general purpose</td>
+                        <td>Multi-region, latency-sensitive writes with tolerable/resolvable conflicts</td>
+                    </tr>
+                    <tr>
+                        <td>Avoid when</td>
+                        <td>You need multi-region low-latency writes</td>
+                        <td>You can avoid the complexity — conflict resolution is genuinely hard</td>
+                    </tr>
+                    <tr>
+                        <td>Problems introduced</td>
+                        <td>Cross-region write latency if used globally</td>
+                        <td>Write conflicts, clock-skew-driven ordering ambiguity</td>
+                    </tr>
+                    <tr>
+                        <td>How FAANG-scale systems solve it</td>
+                        <td colspan="2">Often layer in <strong>causal/version-vector conflict resolution</strong> (e.g., DynamoDB's vector clocks) or route by geography with per-region "ownership" of record ranges to minimize true multi-writer conflicts</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <hr>
+
+            <h2 id="production-perspective">5. Production System Perspective</h2>
+            
+            <ul>
+                <li><strong>Sticky sessions in practice:</strong> Older enterprise Java shops (banking, insurance) historically leaned on stateful sessions with clustered failover (WebLogic/WebSphere) — precisely the pattern the transcript flags as "messy." Most cloud-native companies (Netflix, Uber, Stripe) deliberately architect <strong>stateless services</strong> and externalize all session/user state to fast stores (Redis, DynamoDB), specifically so that autoscaling and rolling deployments never risk data loss on instance termination.</li>
+                <li><strong>Shared cache at scale:</strong> Services like Netflix's EVCache (a Memcached-based layer) exist precisely to give stateless services near-memory-speed access to frequently-read data without paying full database latency — a production embodiment of §2.3's shared-cache pattern.</li>
+                <li><strong>Read replica fan-out:</strong> Systems like Instagram (historically Postgres) and many e-commerce platforms run a master plus many async read replicas to absorb read-heavy traffic (product pages, feeds) while keeping writes (checkout, posts) funneled through a single master for consistency.</li>
+                <li><strong>Multi-region writes:</strong> Databases explicitly designed around the master-master idea — e.g., <strong>Cassandra</strong> (leaderless, tunable consistency) and <strong>DynamoDB global tables</strong> — exist because companies like Amazon needed low-latency local writes in every region while accepting eventual conflict resolution (typically last-writer-wins with vector clocks).</li>
+            </ul>
+
+            <hr>
+
+            <h2 id="system-design">6. System Design Perspective</h2>
+            
+            <p><strong>What this concept affects:</strong> Scalability (read/write capacity), Reliability (blast radius of a node failure), Availability (can writes/reads continue during partial failure), Performance (added hops vs added memory access), Operational complexity (clustering, conflict resolution), Cost (extra machines needed purely due to memory-bound session ceilings).</p>
+
+            <p><strong>"If I ignored this concept, what would go wrong?"</strong></p>
+            <ul>
+                <li>Sticking with a single, unreplicated web/service/DB instance means the system has a <strong>hard scalability ceiling</strong> (vertical scaling limits) and a <strong>single point of failure</strong> — any crash takes down the entire system.</li>
+                <li>Choosing stateful web replication by default (without a genuine latency justification) silently creates a <strong>cost multiplier</strong> (more machines needed for the same load) and a <strong>data-loss risk</strong> on every node failure — a decision that looks fine in a demo and fails expensively at scale.</li>
+                <li>Choosing synchronous replication everywhere (thinking "consistency is always better") silently creates a <strong>write-availability bottleneck</strong> tied to the health of every synchronous replica — a subtle failure mode that only shows up under real network partitions.</li>
+                <li>Replicating services without addressing the shared-resource locking problem (§3.4) introduces <strong>silent race conditions</strong> on shared files/resources that may not surface until concurrent load is high enough to trigger them in production.</li>
+            </ul>
+
+            <hr>
+
+            <h2 id="performance-analysis">7. Performance Analysis</h2>
+            
+            <ul>
+                <li><strong>Memory:</strong> Stateful sessions consume per-instance RAM proportional to concurrent user count — the direct cause of the 500-vs-2000 connection ceiling example. This is a <strong>cache-locality</strong> benefit (fastest possible access) traded for a <strong>hard capacity ceiling</strong>.</li>
+                <li><strong>Network latency:</strong> Every hop removed (local memory &gt; shared cache &gt; service+DB) is a proportional latency win, but each hop also removes a resilience/scalability constraint — it's a two-axis trade, not a pure win.</li>
+                <li><strong>Write latency (sync vs async):</strong> Sync replication directly adds the round-trip time to the secondary onto every write's critical path — this is the classic "extra network hop equals extra tail latency" pattern, and at global scale this round trip can dominate P99 write latency.</li>
+                <li><strong>Throughput implications:</strong> Async master-slave decouples write throughput from replica health entirely, maximizing master throughput; sync coupling caps effective throughput at the slower of (master, secondary).</li>
+                <li><strong>Lock contention (§3.4):</strong> Moving from in-memory locks to DB row locks introduces real contention costs — every replicated instance now competes for the same row lock, and under high concurrency this can become a serialization bottleneck across the whole fleet, not just within one process.</li>
+            </ul>
+
+            <hr>
+
+            <h2 id="real-world-examples">8. Real-World Architecture Examples</h2>
+            
+            <p><strong>Scenario A — E-commerce product catalog (read-heavy, latency-tolerant):</strong><br>
+            Problem: Millions of read-heavy product page views vs comparatively few writes (admin updates). Chosen: master + several async read replicas + shared Redis cache in front of the web tier. Trade-off accepted: occasional few-hundred-ms staleness on product data after an update. Alternative: fully synchronous replication (rejected — would tank write throughput for a benefit customers wouldn't notice). Failure scenario: master dies → a synchronous backup (kept separately, not one of the read replicas) is promoted; the read replicas simply re-point to the new master.</p>
+
+            <p><strong>Scenario B — Global SaaS collaboration tool (multi-region writes):</strong><br>
+            Problem: users in the US and EU both need to write low-latency edits to shared documents. Chosen: master-master (or leaderless) replication across regions with operational transformation / CRDT-based conflict resolution. Trade-off accepted: engineering investment in conflict resolution logic. Alternative: single global master (rejected — EU users would suffer transatlantic write latency). Failure scenario: simultaneous edits to the same paragraph from both regions — resolved via CRDT merge rather than last-writer-wins to avoid silently discarding a user's edit.</p>
+
+            <p><strong>Scenario C — Session-heavy real-time trading dashboard (extreme low-latency need):</strong><br>
+            Problem: a trading desk UI needs sub-millisecond access to a user's live position data, and DB/cache round trips are unacceptable. Chosen: deliberately stateful web replication with sticky sessions, accepting reduced elasticity, in one of the rare cases the transcript explicitly allows. Trade-off accepted: reduced max concurrent users per box, and a defined incident runbook for handling node failure (accepting brief data gaps, or layering in clustered session replication despite the complexity cost). Alternative: shared in-memory data grid (e.g., Hazelcast) instead of pure local memory — a middle ground giving near-local speed with better failure tolerance.</p>
+
+            <hr>
+
+            <h2 id="architecture-diagrams">9. Architecture Diagrams</h2>
+            
+            <p><strong>Stateful web replication (sticky sessions):</strong></p>
+<pre><code>                 +---------+
+   Client ------&gt;|   LB    |----(cookie: session=101,node=1)---&gt; Node1 (has session 101 in memory)
+                 +---------+
+                                                                Node2, Node3 (no session 101)</code></pre>
+
+            <p><strong>Stateless web replication with shared cache:</strong></p>
+<pre><code>Client ---&gt; LB ---&gt; {Node1|Node2|Node3} (any node, no stickiness)
+                          |
+                          v
+                   Shared Cache (Redis/Memcached)
+                     | hit          | miss
+                     v              v
+               serve directly   Service --&gt; DB --&gt; populate cache --&gt; serve</code></pre>
+
+            <p><strong>Master-slave (async read replicas + sync backup):</strong></p>
+<pre><code>                     +-----------+
+        writes ----&gt; |  Master   |
+                     +-----------+
+                     /     |      \
+              (async)  (async)   (sync)
+                 v         v         v
+           ReadRepl1  ReadRepl2   Backup (promoted on master failure, zero data loss)
+             ^reads      ^reads</code></pre>
+
+            <p><strong>Master-master (bidirectional, geo-distributed):</strong></p>
+<pre><code>   NA Users --writes/reads--&gt; Instance-NA &lt;==bidirectional async==&gt; Instance-APAC &lt;--writes/reads-- APAC Users
+                                                (conflict resolution on reconciliation)</code></pre>
+
+            <hr>
+
+            <h2 id="interview-questions">10. Interview Questions</h2>
+
+            <h3>Basic</h3>
+            <ol>
+                <li><strong>What is the difference between stateful and stateless replication?</strong><br>
+                <em>Answer:</em> Stateless replicates only code — no data outlives a single request on a given instance. Stateful replicates code <em>and</em> data — instances hold long-lived, request-independent data (e.g., sessions) locally. Trade-off: stateful gives lower latency for repeat access but couples correctness to a specific node's availability, hurting scalability and reliability.</li>
+                <li><strong>What is a sticky session, and what problem does it solve?</strong><br>
+                <em>Answer:</em> A load-balancer mechanism that routes a client's repeat requests to the same backend node, based on a cookie encoding session ID and node identity. It solves the problem of a stateful node needing to be the one serving a given user's cached data. It introduces fragility: if that node dies, the "stickiness" promise is broken.</li>
+                <li><strong>What is the difference between master-slave and master-master database replication?</strong><br>
+                <em>Answer:</em> Master-slave: writes go only to a single master; slaves are read-only and unidirectionally synced — no write conflicts possible. Master-master: any instance accepts writes; replication is bidirectional — write conflicts are possible and must be resolved.</li>
+            </ol>
+
+            <h3>Intermediate</h3>
+            <ol start="4">
+                <li><strong>You need to scale reads on a database that gets 100x more reads than writes. Would you use async or sync master-slave replication, and why?</strong><br>
+                <em>Answer:</em> Asynchronous — for read replicas, you want low write latency on the master and are willing to tolerate a small propagation delay (eventual consistency) on reads. Synchronous replication would unnecessarily slow every write and risk write unavailability if any replica has issues — reserved for a small number of backup replicas, not fan-out read replicas.</li>
+                <li><strong>A stateful web architecture works fine at low traffic but starts requiring far more machines than expected as traffic grows. Why?</strong><br>
+                <em>Answer:</em> Session data occupies memory per connection; the machine's true CPU/thread-based capacity (e.g., 2,000 connections) is overridden by a much lower memory-bound ceiling (e.g., 500 sessions at 1MB each on 500MB available). Scaling to the same real user load now requires proportionally more machines than a stateless design would, inflating cost.</li>
+                <li><strong>Compare synchronous master-slave replication to master-master replication in terms of availability.</strong><br>
+                <em>Answer:</em> Synchronous master-slave: doesn't matter which of the two nodes fails, writes become unavailable, because a commit requires both nodes' acknowledgment. Master-master: writes/reads can continue on whichever instance survives — higher raw availability — but at the structural cost of possible write conflicts that synchronous master-slave never has to face.</li>
+            </ol>
+
+            <h3>Advanced</h3>
+            <ol start="7">
+                <li><strong>Design the replication topology for a globally distributed social media app where users in the US, EU, and Asia all post content with low latency, and explain the trade-offs.</strong><br>
+                <em>Answer:</em> Master-master (or leaderless, e.g., Cassandra-style) replication across three regional clusters, each accepting local writes, with asynchronous bidirectional (or all-to-all) propagation. Trade-offs: must implement conflict resolution (e.g., last-writer-wins with vector clocks, or CRDTs for structured merges), must accept eventual consistency for cross-region reads, and must handle clock-skew-driven ordering ambiguity. Alternative (single global master) would fix consistency and eliminate conflicts, but at the cost of unacceptable write latency for two of the three regions — rejected because the product's core UX (posting) is latency-sensitive.</li>
+                <li><strong>Explain, in CAP/PACELC terms, why asynchronous master-slave replication cannot give you both low write latency and strong read consistency simultaneously.</strong><br>
+                <em>Answer:</em> Asynchronous replication decouples the write-commit event from replica propagation to minimize write latency (only the master needs to ack). That decoupling is exactly what creates the window where a replica read can be stale — you've explicitly chosen Latency over Consistency (the "ELC" in PACELC) during normal operation, and Availability over Consistency ("AC") during a partition, because you don't want writes blocked waiting on a replica.</li>
+                <li><strong>A team replicated a previously single-instance service that periodically writes an aggregate counter to a shared file. After replication, they see corrupted/incorrect counter values under load. Diagnose and fix.</strong><br>
+                <em>Answer:</em> Diagnosis: the original code relied on in-process/OS-level locking (e.g., a mutex) to synchronize writes to the shared file — valid only within a single process/machine. After replication across independent instances, each instance has its own OS lock scope; none of them can see or respect another instance's lock, so concurrent writes race and corrupt the file. Fix: replace the local lock with an externally shared, cross-instance lock — e.g., a row-level lock in a database "lock table" representing that file, acquired via a transaction (BEGIN → lock row → modify file → COMMIT to release), which every instance, regardless of which machine it runs on, will honor.</li>
+            </ol>
+
+            <hr>
+
+            <h2 id="common-mistakes">11. Common Mistakes & Misconceptions</h2>
+            <ul>
+                <li><strong>"Stateless is always slower, so stateful is better for performance."</strong> False in aggregate: stateful is faster <em>per cache hit on that specific node</em>, but it doesn't eliminate latency system-wide — it just relocates where the cache lives, at the cost of a scalability/reliability ceiling that stateless designs don't have. A well-placed shared cache closes most of the latency gap without the downsides.</li>
+                <li><strong>"Synchronous replication is strictly 'more correct,' so just use it everywhere."</strong> It trades consistency for <strong>write availability</strong> — using it for every read replica (instead of just a backup) needlessly caps your write throughput at your slowest replica and creates unnecessary availability risk.</li>
+                <li><strong>"Master-master gives better availability, so it's a strict upgrade over master-slave."</strong> It removes the single-writer property, and with it the "no write conflicts, ever" guarantee that makes master-slave operationally simple. It's a trade, not a strict upgrade — appropriate specifically for geo-distributed low-latency-write needs, not as a general default.</li>
+                <li><strong>"If I made my service stateless, I don't need to worry about concurrency/locking anymore."</strong> Removing <em>session</em> state doesn't remove <em>shared external resource</em> state (files, counters, third-party systems) — those still need cross-instance coordination once replicated (§3.4).</li>
+                <li><strong>"Async replication lag is a bug to be fixed."</strong> It's an inherent property of the async design choice, not a defect — the fix isn't "make it faster," it's "choose sync replication for the specific replica where staleness is unacceptable" (i.e., the backup, not every read replica).</li>
+            </ul>
+
+            <hr>
+
+            <h2 id="connections">12. Connections to Other Architecture Topics</h2>
+<pre><code>Vertical Scaling limits
+        │
+        ▼
+ Horizontal Scaling ──► Replication ──┬──► Stateful (Web) ──► Sticky Sessions ──► Load Balancer routing
+                                       │
+                                       ├──► Stateless (Web/Service) ──► Shared Cache (Redis/Memcached)
+                                       │            │
+                                       │            └──► "Caching for scalability" (next lecture — cache-aside, write-through patterns)
+                                       │
+                                       └──► Database Replication ──┬──► Master-Slave (Async/Sync) ──► CAP / PACELC
+                                                                    │
+                                                                    └──► Master-Master ──► Conflict Resolution ──► Vector Clocks / CRDTs
+                                                                                 │
+                                                                                 └──► (future) Database Partitioning / Sharding — for write-scale beyond what any single master can take, complementary to replication</code></pre>
+
+            <p><strong>Forward pointers (per syllabus mapping — not deep-dived here on purpose):</strong></p>
+            <ul>
+                <li>Shared-cache architecture patterns (cache-aside, write-through, TTL strategy) → <strong>"Caching for scalability"</strong></li>
+                <li>Splitting a <em>single</em> database's data across multiple machines by key range (as opposed to replicating the <em>whole</em> dataset) → <strong>"Database partitioning"</strong></li>
+                <li>How the load balancer actually makes routing decisions (health checks, algorithms, discovery) → <strong>Load Balancing sub-track</strong></li>
+                <li>Decoupling write latency from downstream processing entirely via queues → <strong>Asynchronous services / Asynchronous processing &amp; scalability</strong></li>
+            </ul>
+        </div>
+    </main>
+
+</body>
+</html>
