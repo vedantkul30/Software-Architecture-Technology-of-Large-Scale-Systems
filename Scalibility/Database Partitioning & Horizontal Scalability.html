@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Database Partitioning & Horizontal Scalability</title>
+    <style>
+        :root {
+            --sidebar-bg: #0f172a;
+            --sidebar-hover: #1e293b;
+            --sidebar-text: #94a3b8;
+            --sidebar-text-hover: #f8fafc;
+            --bg-color: #f1f5f9;
+            --card-bg: #ffffff;
+            --text-main: #334155;
+            --heading-color: #0f172a;
+            --primary-accent: #2563eb;
+            --code-bg: #1e293b;
+            --code-text: #e2e8f0;
+            --inline-code-bg: #e2e8f0;
+            --inline-code-text: #b91c1c;
+            --border-color: #e2e8f0;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            line-height: 1.7;
+        }
+
+        /* Sidebar Navigation */
+        .sidebar {
+            width: 280px;
+            height: 100vh;
+            background-color: var(--sidebar-bg);
+            position: fixed;
+            top: 0;
+            left: 0;
+            overflow-y: auto;
+            padding: 2rem 1rem;
+            box-sizing: border-box;
+            border-right: 1px solid #1e293b;
+        }
+
+        .sidebar h2 {
+            color: #ffffff;
+            font-size: 1.2rem;
+            margin-bottom: 1.5rem;
+            padding-left: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .sidebar ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .sidebar li {
+            margin-bottom: 0.5rem;
+        }
+
+        .sidebar a {
+            display: block;
+            padding: 0.75rem 1rem;
+            color: var(--sidebar-text);
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .sidebar a:hover {
+            background-color: var(--sidebar-hover);
+            color: var(--sidebar-text-hover);
+            padding-left: 1.25rem;
+        }
+
+        /* Main Content Area */
+        .content-wrapper {
+            margin-left: 280px;
+            padding: 3rem 5%;
+            width: calc(100% - 280px);
+            box-sizing: border-box;
+        }
+
+        .content {
+            background: var(--card-bg);
+            padding: 3rem 4rem;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        /* Typography */
+        h1, h2, h3, h4 {
+            color: var(--heading-color);
+            margin-top: 2.5rem;
+            margin-bottom: 1rem;
+            font-weight: 700;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-top: 0;
+            padding-bottom: 1rem;
+            border-bottom: 3px solid var(--primary-accent);
+        }
+
+        h2 {
+            font-size: 1.8rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-top: 1rem;
+        }
+
+        h3 {
+            font-size: 1.4rem;
+            color: var(--primary-accent);
+        }
+
+        h4 {
+            font-size: 1.1rem;
+            color: var(--heading-color);
+        }
+
+        p {
+            margin-bottom: 1.2rem;
+        }
+
+        strong {
+            color: var(--heading-color);
+        }
+
+        /* Code Blocks */
+        pre {
+            background-color: var(--code-bg);
+            color: var(--code-text);
+            padding: 1.5rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: 'Fira Code', 'Courier New', Courier, monospace;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        code {
+            background-color: var(--inline-code-bg);
+            color: var(--inline-code-text);
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-family: 'Fira Code', 'Courier New', Courier, monospace;
+            font-size: 0.9em;
+        }
+
+        pre code {
+            background-color: transparent;
+            color: inherit;
+            padding: 0;
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 2rem 0;
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        th, td {
+            padding: 1rem;
+            text-align: left;
+            border: 1px solid var(--border-color);
+            vertical-align: top;
+        }
+
+        th {
+            background-color: #f8fafc;
+            color: var(--heading-color);
+            font-weight: 600;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f8fafc;
+        }
+
+        /* Lists */
+        ul, ol {
+            margin-bottom: 1.5rem;
+            padding-left: 2rem;
+        }
+
+        li {
+            margin-bottom: 0.5rem;
+        }
+
+        hr {
+            border: 0;
+            border-top: 1px solid var(--border-color);
+            margin: 2rem 0;
+        }
+
+        /* Callouts / Highlight Box */
+        .highlight-box {
+            background-color: #eff6ff;
+            border-left: 4px solid var(--primary-accent);
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 900px) {
+            .sidebar {
+                width: 100%;
+                height: auto;
+                position: relative;
+                padding: 1rem;
+            }
+            .content-wrapper {
+                margin-left: 0;
+                width: 100%;
+                padding: 1rem;
+            }
+            .content {
+                padding: 1.5rem;
+            }
+            h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Vertical Sidebar -->
+    <nav class="sidebar">
+        <h2>Contents</h2>
+        <ul>
+            <li><a href="#intro">Context & Scope</a></li>
+            <li><a href="#core-concept">1. Core Concept & Intuition</a></li>
+            <li><a href="#transcript-content">2. Transcript Content</a></li>
+            <li><a href="#deep-technical">3. Deep Technical Explanation</a></li>
+            <li><a href="#architecture-tradeoffs">4. Architecture Trade-offs</a></li>
+            <li><a href="#production-perspective">5. Production System Perspective</a></li>
+            <li><a href="#system-design">6. System Design Perspective</a></li>
+            <li><a href="#performance-analysis">7. Performance Analysis</a></li>
+            <li><a href="#real-world-examples">8. Real-World Architecture Examples</a></li>
+            <li><a href="#architecture-diagrams">9. Architecture Diagrams</a></li>
+            <li><a href="#interview-questions">10. Interview Questions</a></li>
+            <li><a href="#common-mistakes">11. Common Mistakes & Misconceptions</a></li>
+            <li><a href="#connections">12. Connections to Other Topics</a></li>
+        </ul>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="content-wrapper">
+        <div class="content">
+
+            <div id="intro">
+                <h1>Database Partitioning</h1>
+                <h2 style="margin-top: -10px; margin-bottom: 0.5rem;">Vertical to Horizontal, Selection, Routing & the Full Scalability Toolkit</h2>
+                
+                <div class="highlight-box">
+                    <p><strong>Syllabus scope:</strong> Vertical partitioning with micro-services → Database partitioning (range & hash) → Database partitioning selection → Routing with database partitioning → Methods for horizontal scalability.</p>
+                    <p><strong>Assumed baseline:</strong> Replication (web/service/DB), stateless vs stateful architecture, master-slave/master-master DB replication, specialized services + gateway pattern, asynchronous processing, caching for scalability — i.e., everything up through "the database is still a single write bottleneck" from the previous two notes documents.</p>
+                    <p><strong>Deferred to later lectures (not deep-dived here):</strong> The entire Load Balancing sub-track (discovery services, DNS-based LB, global server load balancing, auto-scaling) — this document's final transcript is explicitly just the transition into that section. The Micro-Services Architecture module's deeper treatment (SOA formalisms, SAGA/compensating transactions, event-driven transactions) is also still ahead — this document covers only the <em>data-partitioning</em> consequence of microservices, not the full transactional trade-off discussion.</p>
+                </div>
+                <hr>
+            </div>
+
+            <h2 id="core-concept">1. Core Concept & Intuition</h2>
+            
+            <h3>One-Sentence Definition</h3>
+            <p>When replication, specialized services, async processing, and caching have all been applied and the database is <em>still</em> the bottleneck, the final horizontal-scalability lever is <strong>partitioning</strong> — first <em>vertically</em>, by splitting one shared database along business-domain boundaries (as a consequence of microservices), and then, if that's still not enough, <em>horizontally</em>, by splitting a single domain's data across many nodes (by range or by hash) — with both approaches paying for their scalability gains by sacrificing ACID transactions across the partition boundary.</p>
+
+            <h3>Why This Concept Exists</h3>
+            <p>Every technique covered so far — replication, caching, async processing — treats the database as a single, indivisible unit and tries to reduce <em>how much</em> load reaches it or <em>how fast</em> it must be processed. None of them change the fact that, underneath, there is still fundamentally <strong>one dataset on one (or one master's worth of) machine</strong> for writes. Eventually, for a system with enough scale, that single-machine ceiling itself becomes the bottleneck — no amount of caching or queuing changes the fact that one machine can only hold and write so much data so fast. The industry's answer was to stop treating "the database" as one indivisible thing and instead <strong>split the data itself</strong> across multiple independent machines — first by <em>what kind</em> of data it is (vertical, by business domain), and then, if a single domain is still too big, by <em>which specific records</em> it is (horizontal, by range or hash of a key). This is presented explicitly as the <strong>last resort</strong> — used only when nothing else is sufficient.</p>
+
+            <h3>Architecture Analogy</h3>
+            <p>Think of a <strong>city's postal system</strong>. Early on, one central post office (single database) handles all mail for the whole city — sorting, routing, delivery. As the city grows, you might first split by <em>type of mail</em> — one office handles residential mail, another handles business/commercial mail, another handles government mail (vertical partitioning — different domains, different "post offices," each independent). But if the residential-mail office is <em>itself</em> now overwhelmed because the residential district has grown huge, you don't build a whole new city-wide system — you split residential mail further by <strong>street address range</strong> ("streets 1–1000 go to Sub-Station A, 1001–2000 go to Sub-Station B" — range partitioning) or by some deterministic assignment rule that spreads addresses evenly regardless of geography ("compute a code from the house number and route to whichever sub-station that code maps to" — hash partitioning). Range-based sub-stations make it easy to deliver mail for a contiguous block of addresses in one trip (range queries are cheap), but hash-based sub-stations, despite scrambling addresses unpredictably, guarantee no single sub-station gets overloaded just because one street happens to be huge (even load distribution), at the cost of not being able to efficiently ask "give me everyone on 5th street" (range queries become expensive).</p>
+
+            <h3>How a Real System Sees It</h3>
+            <ul>
+                <li>A <strong>microservices architecture</strong> is, from a database perspective, the visible result of <em>vertical</em> partitioning: each service (Order, Inventory, Catalog, User) owns its own database, with no cross-domain foreign keys or joins allowed.</li>
+                <li>Inside any one of those domain databases, if it's still overloaded, <strong>horizontal partitioning</strong> (sharding) kicks in: the order table itself gets split by order ID across N nodes.</li>
+                <li>A <strong>partition-aware client library</strong>, a dedicated <strong>routing/proxy component</strong> (like MongoDB's <code>mongos</code>), or a <strong>gossip-based any-node-forwards</strong> model (like DynamoDB/Cassandra) is what actually resolves "which physical node holds this record" for every read/write.</li>
+                <li><strong>NoSQL databases</strong> are frequently the default choice for horizontally partitioned systems specifically because they were built around this partitioning model natively, though modern RDBMS increasingly offer auto-sharding too.</li>
+            </ul>
+
+            <hr>
+
+            <h2 id="transcript-content">2. Transcript Content — The "What"</h2>
+            
+            <h3>2.1 Vertical Partitioning with Micro-services</h3>
+
+            <p><strong>Starting point — the recap of everything so far:</strong> stateless web/service architecture → replicated services → specialized services → asynchronous processing (relieves DB write load) → caching (relieves DB read load). All of these can be scaled by adding more machines — <em>except</em> database write load, which cannot be distributed for a standard RDBMS with a single write target.</p>
+
+            <p><strong>The key realization — look at what data the database actually stores:</strong> the single database holds data belonging to distinct business domains — inventory, order, catalog, user — each already served by its own specialized service. Since these domains are already logically separate at the service level, the data itself can be separated the same way.</p>
+
+            <p><strong>The transformation:</strong> one shared database → four independent databases (inventory DB, order DB, catalog DB, user DB), each owned exclusively by its corresponding service.</p>
+
+            <p><strong>Quantified benefit (explicit in transcript):</strong> "roughly... four times more scalable and possibly more" — splitting into N independent domain databases distributes write load across N machines instead of one.</p>
+
+            <p><strong>The hard requirement this imposes — elimination of common/shared tables:</strong> any table previously shared across domains must be eliminated. Each database now owns only the data for its specific business domain. A service can no longer directly access another domain's data — e.g., Order Service can no longer directly query Catalog Service's data; it must go through Catalog Service's API instead. This is <strong>separation of responsibilities in terms of data</strong>, not just in terms of code.</p>
+
+            <p><strong>What you gain:</strong> databases are now independent — scalable independently, deployable independently, and each carries its own distinct load profile. Write load, previously concentrated on one machine, is now distributed across several machines.</p>
+
+            <p><strong>What you sacrifice — explicitly named:</strong> <strong>ACID transactions</strong> across domain boundaries. If Order Service previously ran a transaction spanning order tables and, say, inventory tables (now in a separate database), that transaction is no longer possible in the ACID sense. The system must instead deal with <strong>eventual consistency</strong> across domains — a trade-off the transcript explicitly defers to the future Microservices module for deeper treatment (SAGA pattern).</p>
+
+            <p><strong>Naming the pattern:</strong> this is explicitly identified as <strong>microservices architecture</strong> — vertical partitioning of both services <em>and</em> their data — used for very high levels of scalability specifically "when we do not have other ways of scaling our system."</p>
+
+            <h3>2.2 Database Partitioning (Horizontal) — Range and Hash</h3>
+
+            <p><strong>Where horizontal partitioning fits relative to vertical partitioning:</strong> vertical partitioning (§2.1) is itself described as <em>a kind</em> of database partitioning — one based on domain/functionality. But it has an explicit <strong>ceiling</strong>: if you have, say, 10 business domains to split across, you can scale roughly 10x (somewhat more or less) — no further, because you've run out of domains to split along. When even this isn't enough — a single domain's database (e.g., Order DB) remains overloaded even after vertical partitioning — <strong>horizontal partitioning</strong> is the next lever.</p>
+
+            <p><strong>What horizontal partitioning does:</strong> takes one already-domain-scoped database (e.g., the heavily overloaded Order database) and splits its <em>data</em> — not by domain, but by <strong>individual records</strong> — across multiple nodes (Node 1, Node 2, Node 3, ...), which together hold exactly the data that used to live on one machine.</p>
+
+            <p><strong>Two schemes: Range Partitioning and Hash Partitioning.</strong></p>
+
+            <h4>Range Partitioning</h4>
+            <ul>
+                <li>Partition by the primary key's <strong>range</strong>: e.g., order IDs 1–100 → Node 1, 100–200 → Node 2, 200–300 → Node 3 (or, at larger scale, 1–1,000,000 → Node 1, and so on).</li>
+                <li>The partitioning scheme depends entirely on the number of nodes — changing node count later requires re-deriving the ranges, which the transcript flags as a real operational complication (though not elaborated on further at this stage).</li>
+                <li>Insert/update/delete/fetch logic must know which range a given ID falls into to route to the correct node.</li>
+                <li>With enough partitions (e.g., 100), you can scale the database roughly proportionally (e.g., ~100x).</li>
+            </ul>
+
+            <h4>Hash Partitioning</h4>
+            <ul>
+                <li>Instead of a range, compute a <strong>hash of the key</strong> (e.g., hash(36)), then apply a <strong>modulo</strong> operation against the number of nodes (e.g., <code>hash(36) % 3</code>) to deterministically pick a node.</li>
+                <li>Every operation (get/insert/update/delete) uses this same hash+modulo computation to find the right node.</li>
+                <li><strong>Explicit caveat:</strong> raw modulo-based hashing is a simplification for understanding. In practice, systems use <strong>consistent hashing</strong> (or more advanced variants) specifically to <strong>minimize data movement</strong> when nodes are added or removed — a real modulo scheme would require re-hashing almost all keys on every node-count change, which consistent hashing avoids.</li>
+                <li>Scales to arbitrarily large node counts (the transcript gives an explicit example: 1,000 nodes for an extremely large order table).</li>
+            </ul>
+
+            <p><strong>The shared cost of both schemes — loss of ACID transactions:</strong></p>
+            <ul>
+                <li>A transaction touching a single record on a single node is still fully ACID.</li>
+                <li>A transaction touching <strong>multiple records that live on different nodes</strong> is <strong>no longer possible as an ACID transaction</strong> — this is explicitly framed as the <em>same class of problem</em> as the cross-domain transaction loss in vertical partitioning (§2.1), just recurring <em>within</em> a single domain now.</li>
+                <li><strong>Explicit consequence for database choice:</strong> this kind of partitioning is not popular in traditional RDBMSs, which are built around ACID guarantees — this is why horizontally-partitioned systems are historically dominated by <strong>NoSQL databases</strong>, which are designed from the ground up to auto-partition data (you specify the partitioning basis; the database handles the rest). The transcript notes that <strong>modern RDBMSs increasingly offer auto-sharding/auto-partitioning too</strong>, but implementation details (rebalancing behavior on node changes, etc.) must be verified against specific database documentation.</li>
+            </ul>
+
+            <p><strong>The other, non-partitioning-specific cost (explicit callout):</strong> any scalability technique that adds more machines/hardware inherently adds <strong>operational complexity</strong> — this cost isn't unique to database partitioning, but it applies here too and doesn't go away.</p>
+
+            <p><strong>When to reach for this:</strong> database partitioning is explicitly framed as something you use "whenever you need extreme amount of scalability," and specifically <strong>after</strong> vertical partitioning alone has proven insufficient.</p>
+
+            <h3>2.3 Database Partitioning Selection — Range vs Hash, by Query Pattern</h3>
+
+            <p><strong>The deciding factor:</strong> how your application actually <strong>fetches data</strong> — specifically, whether your query patterns are predominantly <strong>range-based</strong> or predominantly <strong>key/ID-based</strong>.</p>
+
+            <p><strong>Range partitioning fits range queries:</strong></p>
+            <ul>
+                <li>Example: <code>SELECT * FROM order WHERE id &gt; 150 AND id &lt; 250</code>.</li>
+                <li>If data for IDs 150–250 spans exactly two nodes (Node 2, Node 3), the query only needs to visit those two nodes — efficient, proportional to the actual range span.</li>
+                <li>Range partitioning can <em>also</em> handle exact-match queries (<code>WHERE id = 150</code>) just as efficiently as hash partitioning can.</li>
+            </ul>
+
+            <p><strong>Hash partitioning fits key-based (point) queries, but breaks range queries:</strong></p>
+            <ul>
+                <li>Example: <code>SELECT * FROM order WHERE id = 150</code> — hash partitioning handles this well (in fact, faster than range partitioning for this case — see performance note below).</li>
+                <li>But a range query (<code>id BETWEEN 150 AND 170</code>) on a hash-partitioned database has <strong>no efficient equivalent</strong> — you must issue one query per individual ID (e.g., 20 separate queries for a 20-ID range), and because hash partitioning is explicitly designed to spread keys <strong>evenly</strong> across nodes, those 20 IDs will likely land on many different nodes — a costly, scattered operation. The database may offer some batching convenience, but the underlying queries remain effectively separate, per-node lookups.</li>
+            </ul>
+
+            <p><strong>The formal relationship (explicit in transcript):</strong> range partitioning is a <strong>superset</strong> of hash partitioning's capability — anything hash partitioning can query efficiently (point/key lookups), range partitioning can also do; but range partitioning <em>additionally</em> supports efficient range queries, which hash partitioning cannot.</p>
+
+            <p><strong>So why ever use hash partitioning at all? — Performance on key-based lookups.</strong></p>
+            <ul>
+                <li>In <strong>range partitioning</strong>, locating a key requires traversing a <strong>tree-like index structure</strong> that may itself be <strong>distributed across multiple nodes</strong> — meaning a single key lookup can require <strong>multiple network hops</strong> across machines to walk the tree, adding latency.</li>
+                <li>In <strong>hash partitioning</strong>, the hash+modulo computation <strong>directly determines</strong> the target node — no tree traversal, no index structure spanning multiple machines needed. This computation can even be done <strong>entirely client-side</strong>, without involving a server round-trip just to <em>locate</em> the data (though the actual data fetch still requires contacting that node).</li>
+                <li><strong>Conclusion:</strong> hash partitioning is used specifically when access patterns are <strong>predominantly key/ID-based</strong>, because it offers meaningfully lower latency for that access pattern than range partitioning does, at the cost of losing range-query capability entirely.</li>
+            </ul>
+
+            <h3>2.4 Routing with Database Partitioning — Three Ways a Client Finds the Right Node</h3>
+
+            <p>For a horizontally partitioned database, a client (e.g., an Order Service instance) issuing a get/update/delete/insert for a specific record needs a way to determine which physical node holds that data. Three approaches, each implemented by different real databases:</p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Approach</th>
+                        <th>How it works</th>
+                        <th>Example databases</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>1. Cluster-aware client library</strong></td>
+                        <td>The client-side library itself is aware of cluster topology and applies the partitioning/hashing logic locally to determine the target node before making any network call</td>
+                        <td>Couchbase, Memcached</td>
+                    </tr>
+                    <tr>
+                        <td><strong>2. Dedicated router component</strong></td>
+                        <td>A separate server-side component (a standalone service) receives all client requests, is aware of the cluster topology and partitioning scheme (range or hash — doesn't matter which), and forwards each request to the correct node</td>
+                        <td>MongoDB (via its router, <code>mongos</code>)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>3. Contact any node</strong></td>
+                        <td>The client can send its request to <em>any</em> node in the cluster; that node takes responsibility for forwarding the request internally to whichever node actually holds the data</td>
+                        <td>DynamoDB, Cassandra</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <p>Each database chooses exactly one of these three models — the transcript is explicit that this is a database-level design decision, not something the application typically layers on top independently.</p>
+
+            <h3>2.5 Methods for Horizontal Scalability — the Full Recap</h3>
+
+            <p>The lecture then explicitly consolidates every horizontal-scalability technique covered across this entire arc, in this order:</p>
+            <ol>
+                <li><strong>Breaking the monolith into (specialized) services</strong> — enables independent scaling per service.</li>
+                <li><strong>Replication</strong> of services and web applications — with the explicit choice between <strong>stateful vs stateless</strong> replication; databases have <strong>no choice</strong> here (they must be stateful by definition, since managing data <em>is</em> their job), but web applications and services <em>do</em> have a choice, and <strong>stateless is explicitly reiterated as the preferred, far-more-scalable option</strong>.</li>
+                <li><strong>(Vertical) Partitioning via microservices</strong> — partitioning entire functionality (and its data) across domains to scale further.</li>
+                <li><strong>Asynchronous processing</strong> — improves handling of write load and lets the system absorb peak loads even when provisioned capacity only matches <em>average</em> load.</li>
+                <li><strong>Caching</strong> — reduces both latency (performance) and backend load (scalability) by reducing what reaches the database.</li>
+                <li><strong>Database (horizontal) partitioning</strong> — explicitly called the <strong>"last resort" of scaling an application</strong> — used specifically when the database itself becomes the bottleneck and can no longer handle the volume of data on a single instance; this is when you partition the data itself.</li>
+            </ol>
+
+            <p>This recap is presented as a complete, ordered toolkit — a mental checklist for approaching horizontal scalability from first (least disruptive) to last (most disruptive, most costly in terms of trade-offs) resort.</p>
+
+            <p><strong>Explicit transition marker:</strong> the lecture then signals a shift away from horizontal scalability entirely, toward other large-scale-system concerns — load balancing, discovery services, DNS, auto-scaling — which is the start of the next syllabus sub-track, not covered further in this document.</p>
+
+            <hr>
+
+            <h2 id="deep-technical">3. Deep Technical Explanation</h2>
+            
+            <h3>3.1 Why vertical partitioning has a hard ceiling that horizontal partitioning doesn't</h3>
+            <p>Vertical partitioning's scalability multiplier is bounded by <strong>how many independent business domains actually exist</strong> in your system — a fixed, finite number determined by your domain model, not by your infrastructure. Once every domain has its own database, there's no further axis along which to vertically split — you've exhausted the <em>dimension</em> itself (a 10-domain system tops out around a 10x multiplier). Horizontal partitioning doesn't have this ceiling because its splitting dimension is <strong>the data itself</strong> (rows/records), which can, in principle, be split arbitrarily fine-grained across an arbitrarily large number of nodes — the transcript's own example of 1,000 nodes for one table illustrates that this dimension scales with data volume, not domain count.</p>
+
+            <h3>3.2 Why losing ACID transactions is not a one-time cost, but a compounding one</h3>
+            <p>It's worth noting the compounding nature of what's being traded away. Vertical partitioning costs you ACID transactions <strong>across domains</strong> (order+inventory can no longer be one transaction). Horizontal partitioning, applied <em>within</em> a single domain that's already been vertically isolated, costs you ACID transactions <strong>across records within that domain</strong> too (multiple order records on different nodes can no longer be one transaction). Each partitioning step removes another layer of transactional guarantee you might have taken for granted — by the time both are applied, only single-record, single-node operations retain true ACID guarantees. This is precisely why the transcript treats database partitioning as a <strong>last resort</strong>: it's not an incremental cost, it's the final and most severe erosion of transactional guarantees among all the techniques covered.</p>
+
+            <h3>3.3 Why range partitioning's index-traversal cost is structural, not incidental</h3>
+            <p>The latency difference between range and hash partitioning for key lookups isn't an implementation detail — it follows directly from what each structure fundamentally <em>is</em>. A range-partitioned index is, by necessity, an <strong>ordered structure</strong> (to support range queries at all) — and an ordered structure spanning multiple machines requires some form of tree/hierarchy that itself may be distributed, meaning a single lookup can require sequential hops to navigate that hierarchy (analogous to navigating a distributed B-tree). A hash-partitioned scheme deliberately <strong>discards ordering</strong> in exchange for a <strong>direct, O(1)-style computation</strong> (hash + modulo) that requires no traversal at all — the node is computed, not discovered. This is a fundamental trade-off in data structure design (ordered vs unordered indexing), not a quirk of any particular database's implementation.</p>
+
+            <h3>3.4 Why consistent hashing exists, and what problem naive modulo hashing has</h3>
+            <p>The transcript flags, without deriving, why naive <code>hash(key) % N</code> is insufficient in practice: if <code>N</code> (the node count) changes — say from 3 to 4 nodes — the modulo result for <strong>almost every existing key</strong> changes too, meaning nearly all data would need to be relocated just to add or remove a single node. This is a catastrophic operational cost at scale. <strong>Consistent hashing</strong> (and its further refinements) is designed specifically so that changing the node count only requires remapping a <strong>small, proportional fraction</strong> of keys (roughly <code>1/N</code> of the data), not the entire dataset — making elastic scaling of the partition count operationally feasible in a way naive modulo hashing is not.</p>
+
+            <h3>3.5 Why the three routing approaches represent a trade-off between client simplicity, latency, and coupling</h3>
+            <ul>
+                <li><strong>Client library approach</strong> minimizes network hops (the client computes the target node locally) but tightly couples every client to the cluster's topology-awareness logic, and that logic must be kept in sync across every client and every language/platform that needs to talk to the database.</li>
+                <li><strong>Router component approach</strong> decouples clients entirely from partitioning logic (clients just talk to the router), at the cost of an extra network hop through the router and a new potential bottleneck/SPOF unless the router itself is replicated.</li>
+                <li><strong>Any-node/gossip approach</strong> avoids a dedicated router as a SPOF and keeps clients simple (any node works as an entry point), but at the cost of a potential extra internal hop (client → wrong node → right node) when the contacted node doesn't hold the requested data, and requires every node to maintain full cluster-topology awareness.</li>
+            </ul>
+
+            <h3>3.6 Failure cases and hidden complexity</h3>
+            <ul>
+                <li><strong>Range partitioning rebalancing:</strong> the transcript explicitly flags that changing node count "becomes complicated" for range partitioning — ranges must be recomputed and data physically moved, with no inherent mechanism (unlike consistent hashing) to minimize how much data moves.</li>
+                <li><strong>Hot partitions in range partitioning:</strong> if writes/reads are skewed toward a particular ID range (e.g., recent/sequential order IDs are always the "hot" range), a single node can become a hotspot even though the overall dataset is "evenly" range-partitioned by ID count — a classic range-partitioning failure mode implicit in, though not explicitly named in, the transcript's own example of sequential integer order IDs.</li>
+                <li><strong>Cross-node transaction loss surfacing as application-level bugs</strong> if not carefully handled — the transcript is explicit that these must now be dealt with in application logic via eventual consistency, which is a substantially different (and more error-prone) programming model than relying on database-level ACID guarantees.</li>
+                <li><strong>Router/gossip node as new infrastructure to operate and reason about failure modes for</strong> — not discussed in depth in the transcript, but implicit in choosing options 2 or 3 from §2.4.</li>
+            </ul>
+
+            <hr>
+
+            <h2 id="architecture-tradeoffs">4. Architecture Trade-offs — The "Why"</h2>
+
+            <h3>Vertical Partitioning (Microservices' data split) vs Horizontal Partitioning (Sharding)</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th>Vertical Partitioning</th>
+                        <th>Horizontal Partitioning</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Splits data by</td>
+                        <td>Business domain / functionality</td>
+                        <td>Individual records (by key range or hash)</td>
+                    </tr>
+                    <tr>
+                        <td>Scalability ceiling</td>
+                        <td>Bounded by number of domains (~Nx for N domains)</td>
+                        <td>Effectively unbounded — scales with node count added</td>
+                    </tr>
+                    <tr>
+                        <td>Choose when</td>
+                        <td>You have distinct business domains with genuinely independent data and access patterns</td>
+                        <td>A single domain's database is still overloaded even after vertical partitioning</td>
+                    </tr>
+                    <tr>
+                        <td>Avoid when</td>
+                        <td>You don't yet have clear domain boundaries, or the cost of eliminating shared tables outweighs the benefit</td>
+                        <td>Vertical partitioning alone is sufficient for your scale</td>
+                    </tr>
+                    <tr>
+                        <td>Problems introduced</td>
+                        <td>Loss of cross-domain ACID transactions; must go through service APIs instead of direct data access</td>
+                        <td>Loss of cross-record (same-domain) ACID transactions; added client/routing complexity; rebalancing complexity</td>
+                    </tr>
+                    <tr>
+                        <td>How FAANG-scale companies solve it</td>
+                        <td>Foundational to virtually all microservice architectures at scale</td>
+                        <td>Standard for any single domain's dataset once it outgrows single-node capacity (e.g., a "users" table with billions of rows)</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Range Partitioning vs Hash Partitioning</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th>Range Partitioning</th>
+                        <th>Hash Partitioning</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Choose when</td>
+                        <td>Query patterns are predominantly range-based (or a mix of range and point queries)</td>
+                        <td>Query patterns are predominantly key/ID-based (point lookups only)</td>
+                    </tr>
+                    <tr>
+                        <td>Avoid when</td>
+                        <td>Access is purely key-based and lowest possible lookup latency matters more than range-query capability</td>
+                        <td>You need efficient range queries at all</td>
+                    </tr>
+                    <tr>
+                        <td>Problems introduced</td>
+                        <td>Slower key-based lookups (distributed tree-index traversal, multiple hops); rebalancing on node-count change is complex and not inherently minimized</td>
+                        <td>No efficient range queries — a range becomes N separate, scattered point queries; naive hashing has the same rebalancing problem unless consistent hashing is used</td>
+                    </tr>
+                    <tr>
+                        <td>Alternative designs</td>
+                        <td>Composite/multi-level partitioning (partition by domain first, then range within domain)</td>
+                        <td>Consistent hashing (and further refinements) to minimize rebalancing cost</td>
+                    </tr>
+                    <tr>
+                        <td>How FAANG-scale companies solve it</td>
+                        <td>Chosen when time-series or ID-ordered access patterns dominate (e.g., time-range queries on event logs)</td>
+                        <td>Default for key-value-style, point-lookup-dominated workloads (e.g., DynamoDB, Cassandra) — explicitly why NoSQL databases favor this model natively</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Full Horizontal Scalability Toolkit — Ordering of Application (from §2.5)</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Technique</th>
+                        <th>Primarily addresses</th>
+                        <th>Relative cost/disruption</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Specialized services</td>
+                        <td>Per-module scaling</td>
+                        <td>Low–moderate (architectural split, no data loss)</td>
+                    </tr>
+                    <tr>
+                        <td>Replication (stateless preferred)</td>
+                        <td>Uniform load across a layer</td>
+                        <td>Low (no transactional cost)</td>
+                    </tr>
+                    <tr>
+                        <td>Vertical partitioning (microservices)</td>
+                        <td>Domain-scoped scaling</td>
+                        <td>Moderate (loses cross-domain ACID)</td>
+                    </tr>
+                    <tr>
+                        <td>Asynchronous processing</td>
+                        <td>Write-load smoothing over time</td>
+                        <td>Low–moderate (adds eventual-confirmation UX)</td>
+                    </tr>
+                    <tr>
+                        <td>Caching</td>
+                        <td>Read-load removal</td>
+                        <td>Low (adds invalidation complexity)</td>
+                    </tr>
+                    <tr>
+                        <td>Horizontal (database) partitioning</td>
+                        <td>Single-domain data volume/throughput ceiling</td>
+                        <td>High — last resort (loses cross-record ACID, adds routing/rebalancing complexity)</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <hr>
+
+            <h2 id="production-perspective">5. Production System Perspective</h2>
+            
+            <ul>
+                <li><strong>Microservices with per-service databases:</strong> this is close to the industry-standard description of how companies like Amazon, Netflix, and Uber structure their backend estates — independently owned, independently scaled datastores per service, with cross-service data access strictly mediated through service APIs, exactly as described in §2.1.</li>
+                <li><strong>Range partitioning in production:</strong> time-series and event-log-heavy systems (e.g., monitoring/observability platforms, or systems like early sharded MySQL deployments keyed by auto-increment ID or timestamp) commonly use range-based sharding specifically because their dominant query pattern is "give me everything in this time/ID window."</li>
+                <li><strong>Hash/consistent-hash partitioning in production:</strong> DynamoDB and Cassandra — both explicitly named in the transcript — are textbook production examples of consistent-hashing-based horizontal partitioning, built specifically for high-throughput, point-lookup-dominated key-value access patterns at massive scale.</li>
+                <li><strong>Routing models in production:</strong> MongoDB's <code>mongos</code> router process is a direct real-world instance of the "dedicated router component" model (§2.4, approach 2); DynamoDB/Cassandra's peer-to-peer, contact-any-node, internally-forwarding model is the direct real-world instance of approach 3; Memcached's client-side hashing libraries are a direct instance of approach 1.</li>
+            </ul>
+
+            <hr>
+
+            <h2 id="system-design">6. System Design Perspective</h2>
+            
+            <p><strong>What this concept affects:</strong> Scalability (the final, most extreme lever for write/data-volume bottlenecks), Consistency (explicit trade of ACID for eventual consistency, at two separate layers — domain and record), Operational complexity (rebalancing, routing infrastructure, more machines to operate), Maintainability (application logic must now handle consistency concerns the database used to guarantee), Cost (more infrastructure, more engineering investment in partition-aware logic).</p>
+
+            <p><strong>"If I ignored this concept, what would eventually go wrong?"</strong></p>
+            <ul>
+                <li>If you never vertically partition and every technique from replication through caching has been exhausted, your database's <em>write</em> capacity remains capped at whatever a single machine (or single master) can sustain — no amount of caching, async smoothing, or read replication changes this, because none of them address a single domain's fundamentally single-writer nature.</li>
+                <li>If you vertically partition but never consider horizontal partitioning when a single domain outgrows one machine, that domain's database becomes the system's hard ceiling regardless of how well every other domain scales — the whole system's throughput is only as good as its most overloaded, unpartitioned domain.</li>
+                <li>If you horizontally partition by hash when your dominant access pattern is actually range-based (or vice versa), you'll pay the cost of partitioning (lost ACID transactions, added complexity) <strong>without</strong> getting the performance benefit that justified it — e.g., choosing hash partitioning for a system that needs frequent date-range reports would make every such report scatter across many nodes inefficiently.</li>
+                <li>If you don't plan for consistent hashing (or an equivalent) from the start, adding or removing nodes later becomes an operationally catastrophic, massive data-movement event rather than a routine scaling operation.</li>
+            </ul>
+
+            <hr>
+
+            <h2 id="performance-analysis">7. Performance Analysis</h2>
+            
+            <ul>
+                <li><strong>Write throughput scaling, vertical partitioning:</strong> splitting one database into N domain databases distributes write load roughly N-fold across N machines — a direct, near-linear (for well-balanced domains) throughput multiplier, bounded by domain count.</li>
+                <li><strong>Write/read throughput scaling, horizontal partitioning:</strong> splitting a single domain's table across M nodes similarly multiplies throughput roughly M-fold, but this dimension is not bounded by a fixed domain count — the transcript's explicit example scales to 1,000 nodes for a single table.</li>
+                <li><strong>Range-query cost on hash-partitioned data:</strong> a range spanning K keys becomes K separate point queries scattered (likely) across up to K different nodes — a combinatorial blow-up in network round-trips compared to the 1–2 node hops a well-aligned range partition would require for the same range.</li>
+                <li><strong>Point-lookup latency, range vs hash partitioning:</strong> range partitioning's key lookup requires traversing a <strong>distributed index tree</strong> (multiple sequential network hops, one per tree level potentially crossing machines); hash partitioning's key lookup requires a <strong>single deterministic computation</strong> (hash + modulo) that can even be done client-side with zero network cost for the <em>locate</em> step — this is the specific, named reason hash partitioning outperforms range partitioning for point lookups.</li>
+                <li><strong>Rebalancing cost, naive hashing vs consistent hashing:</strong> naive <code>hash % N</code> rebalancing on a node-count change touches close to 100% of keys; consistent hashing's rebalancing touches roughly <code>1/N</code> of keys — an asymptotically better rebalancing cost that becomes critical as cluster size grows.</li>
+                <li><strong>Routing-hop overhead by model (§2.4):</strong> client-library routing adds zero extra network hops (computed locally); router-component routing adds exactly one extra hop (client → router → correct node); any-node routing adds, in the worst case, one extra internal hop (client → wrong node → correct node) — a direct latency trade-off among the three models.</li>
+            </ul>
+
+            <hr>
+
+            <h2 id="real-world-examples">8. Real-World Architecture Examples</h2>
+            
+            <p><strong>Scenario A — E-commerce platform hitting a domain-level ceiling (the transcript's own scenario):</strong><br>
+            Problem: even after replication, specialized services, async processing, and caching, the shared database is still the write bottleneck because inventory, order, catalog, and user data all live on one machine. Chosen: vertically partition into four independent domain databases (per §2.1), giving each service exclusive ownership of its own data. Trade-off accepted: cross-domain transactions (e.g., order-plus-inventory) can no longer be ACID — must be handled via eventual consistency and, eventually, patterns like SAGA. Alternative (staying on one shared database and relying only on caching/async processing) rejected because those techniques don't address the fundamental single-machine write ceiling.</p>
+
+            <p><strong>Scenario B — A single domain's table outgrowing vertical partitioning (Order DB overloaded even after §2.1):</strong><br>
+            Problem: even after the four-way vertical split, the Order database alone is still overloaded — too many orders for one machine to hold or write fast enough. Chosen: horizontally partition the Order table across many nodes. Because the dominant order-service access pattern is described as key-based (<code>get order by ID</code>, <code>update order by ID</code>) rather than range-scanning, hash partitioning (with consistent hashing) is the natural fit per §2.3's selection criteria. Trade-off accepted: multi-order-record transactions within the Order domain are no longer ACID; range-style queries (e.g., "all orders placed this week," if IDs don't correlate with time) become expensive or require a separate index/service. Alternative (range partitioning by order ID) would be preferred instead if the dominant access pattern were genuinely range-based (e.g., "fetch all orders in ID range for a batch export job").</p>
+
+            <p><strong>Scenario C — A reporting/analytics system needing efficient time-range scans (contrast case):</strong><br>
+            Problem: A system's dominant query pattern is "give me all events between timestamp A and B" — a genuinely range-heavy workload. Chosen: range partitioning by timestamp (or a time-ordered ID), so a given time-window query only needs to visit the small number of nodes actually covering that window — directly aligned with §2.3's selection rule. Trade-off accepted: point lookups by arbitrary event ID are somewhat slower than they'd be under hash partitioning (distributed index traversal cost per §3.3), and node-count changes require careful range recomputation (§3.6) since consistent hashing's rebalancing benefit doesn't directly apply to range schemes the same way. Alternative (hash partitioning) rejected specifically because it would turn every core reporting query into dozens or hundreds of scattered point queries (per §2.3's explicit example).</p>
+
+            <hr>
+
+            <h2 id="architecture-diagrams">9. Architecture Diagrams</h2>
+            
+            <p><strong>Vertical partitioning — one shared DB becomes four domain DBs:</strong></p>
+<pre><code>BEFORE:
+[User Svc][Catalog Svc][Order Svc][Inventory Svc] ---&gt; ONE shared Database (write bottleneck)
+
+AFTER (vertical partitioning / microservices):
+[User Svc]     ---&gt; User DB
+[Catalog Svc]  ---&gt; Catalog DB
+[Order Svc]    ---&gt; Order DB
+[Inventory Svc]---&gt; Inventory DB
+   (no direct cross-DB access; cross-domain data only via the owning service's API)</code></pre>
+
+            <p><strong>Horizontal partitioning — Order DB split further, by range or hash:</strong></p>
+<pre><code>Range Partitioning (Order table, by ID):
+  ID 1-100   -&gt; Node 1
+  ID 100-200 -&gt; Node 2
+  ID 200-300 -&gt; Node 3
+  Query "id BETWEEN 150 AND 250" -&gt; visits Node 2 AND Node 3 only
+
+Hash Partitioning (Order table, by ID):
+  target_node = hash(order_id) mod N
+  Query "id = 36" -&gt; hash(36) mod 3 = 3 -&gt; visits Node 3 ONLY, directly (no tree traversal)
+  Query "id BETWEEN 150 AND 170" -&gt; 20 separate point queries, scattered across many nodes</code></pre>
+
+            <p><strong>Three routing models (§2.4):</strong></p>
+<pre><code>1) Client-library routing:              2) Router-component routing:            3) Any-node routing:
+   Client                                   Client                                  Client
+     | (computes hash/range locally)          | (sends request as-is)                  | (contacts ANY node)
+     v                                        v                                        v
+   Correct Node directly                   Router (cluster-aware) ---&gt; Correct Node   Contacted Node
+   (e.g., Couchbase, Memcached)             (e.g., MongoDB's mongos)                     | (forwards internally if not the right node)
+                                                                                          v
+                                                                                     Correct Node
+                                                                                     (e.g., DynamoDB, Cassandra)</code></pre>
+
+            <hr>
+
+            <h2 id="interview-questions">10. Interview Questions</h2>
+            
+            <h3>Basic</h3>
+            <ol>
+                <li><strong>What is the difference between vertical and horizontal database partitioning?</strong><br>
+                <em>Answer:</em> Vertical partitioning splits a database by business domain/functionality (e.g., separate Order DB, Catalog DB, User DB) — this is effectively what microservices do to data. Horizontal partitioning splits a single domain's table by individual records — using key range or hash — across multiple nodes, used when a single domain's database is still overloaded even after vertical partitioning.</li>
+                <li><strong>What do range partitioning and hash partitioning each optimize for?</strong><br>
+                <em>Answer:</em> Range partitioning optimizes for range-based queries (e.g., ID or timestamp ranges) since a bounded range typically maps to a small, contiguous set of nodes. Hash partitioning optimizes for key/ID-based point lookups, since the target node is computed directly via hash+modulo with no index traversal — but it cannot efficiently serve range queries, since hashing deliberately scatters keys evenly and unpredictably across nodes.</li>
+                <li><strong>What are the three common ways a client determines which node holds a given piece of partitioned data?</strong><br>
+                <em>Answer:</em> (1) A cluster-aware client library that computes the target node locally (e.g., Couchbase, Memcached); (2) a dedicated server-side router component that is cluster- and partitioning-aware and forwards requests (e.g., MongoDB's router); (3) contacting any node in the cluster, which then internally forwards the request to the correct node if it doesn't hold the data itself (e.g., DynamoDB, Cassandra).</li>
+            </ol>
+
+            <h3>Intermediate</h3>
+            <ol start="4">
+                <li><strong>Why is database partitioning described as the "last resort" for scaling a system, rather than a first choice?</strong><br>
+                <em>Answer:</em> Because it's the only technique in the full scalability toolkit that sacrifices ACID transactions — first across business domains (vertical partitioning) and then, if applied further, across individual records within a domain (horizontal partitioning). Every other technique (replication, caching, async processing, specialized services) preserves single-database ACID guarantees; partitioning is reached for only when the database itself is the bottleneck and nothing else can relieve it.</li>
+                <li><strong>A system's dominant query pattern is "fetch all orders placed in the last 24 hours." Would you choose range or hash partitioning for the order table, and why?</strong><br>
+                <em>Answer:</em> Range partitioning (assuming order IDs or timestamps are used as the partition key and correlate with recency) — because this is a range query, and range partitioning lets such a query touch only the small number of nodes covering that time/ID window. Hash partitioning would scatter the same query into many separate point lookups across potentially many nodes, since hashing is designed to spread keys evenly and unpredictably.</li>
+                <li><strong>Why does hash partitioning generally offer faster point-lookup latency than range partitioning, even though both can technically serve point queries?</strong><br>
+                <em>Answer:</em> Range partitioning locates a key by traversing a tree-like index structure, which in a distributed setting may itself span multiple nodes — requiring multiple network hops to walk the tree. Hash partitioning locates a key via a direct hash+modulo computation that can even be performed client-side with no server round-trip needed just to find the target node — eliminating the distributed-index-traversal cost entirely.</li>
+            </ol>
+
+            <h3>Advanced</h3>
+            <ol start="7">
+                <li><strong>A team horizontally partitions their Order table using naive <code>hash(id) % N</code> and later needs to add a fourth node to a 3-node cluster. What goes wrong, and how is it typically solved in production systems?</strong><br>
+                <em>Answer:</em> Changing N from 3 to 4 changes the modulo result for nearly every existing key, meaning almost the entire dataset would need to be relocated just to add one node — a catastrophic, operationally infeasible rebalancing cost at scale. Production systems solve this with consistent hashing (or further refinements of it), which is designed so that a node-count change only requires remapping a small, proportional fraction of keys (roughly 1/N), not the whole dataset.</li>
+                <li><strong>Explain why "we've partitioned our database, so we've solved our transactional consistency needs the same way as before" is a false statement, addressing both vertical and horizontal partitioning.</strong><br>
+                <em>Answer:</em> It's false at two separate layers. Vertical partitioning removes the ability to run ACID transactions across business domains — e.g., an order-plus-inventory transaction can no longer be atomic once those tables live in separate databases; this must now be handled as eventual consistency (and eventually patterns like SAGA). Horizontal partitioning, applied within a single domain, removes ACID guarantees a second time — for multi-record transactions where the records land on different nodes; only single-record, single-node operations remain truly ACID. Both layers require the application to take on consistency responsibilities the database previously guaranteed automatically.</li>
+                <li><strong>Design the data-partitioning strategy for an e-commerce platform where the Order service needs both fast lookups by order ID and efficient monthly reporting queries by date range. What tension does this create, and how might you resolve it?</strong><br>
+                <em>Answer:</em> This creates a direct tension per §2.3's selection criteria: hash partitioning by order ID would make point lookups fast but turn monthly date-range reports into scattered, expensive multi-node queries; range partitioning by order ID (or date) would make reports efficient but add distributed-index-traversal latency to point lookups. A common resolution is to primarily hash-partition for the operational (order-service) path, since low-latency point lookups matter most for live traffic, and serve the reporting/analytics use case from a separately maintained, range-partitioned (or purpose-built analytical) store fed asynchronously — accepting eventual consistency for reporting data in exchange for not compromising either workload's primary access pattern.</li>
+            </ol>
+
+            <hr>
+
+            <h2 id="common-mistakes">11. Common Mistakes & Misconceptions</h2>
+            <ul>
+                <li><strong>"Partitioning is the first thing to reach for when scaling a database."</strong> The transcript explicitly frames it as the <em>last</em> resort — reached only after replication, specialized services, async processing, and caching have been applied and the database is still the bottleneck, precisely because it's the technique with the steepest trade-off (loss of ACID transactions).</li>
+                <li><strong>"Vertical and horizontal partitioning solve the same problem, so you only need one."</strong> Vertical partitioning has a hard ceiling bounded by the number of business domains you have; horizontal partitioning addresses the case where even a single domain's data has outgrown one machine — they're complementary, applied in sequence, not substitutes.</li>
+                <li><strong>"Hash partitioning is strictly better than range partitioning because it's faster."</strong> It's only faster for point/key-based lookups. It cannot efficiently serve range queries at all — range partitioning is a strict superset in query capability; the "right" choice depends entirely on your dominant access pattern, not on which is generically faster.</li>
+                <li><strong>"Once we've partitioned, our database still gives the same consistency guarantees, just across more machines."</strong> False — multi-record transactions that span partitions (nodes) are no longer ACID; this is an explicit, named trade-off, not an implementation detail that can be worked around for free.</li>
+                <li><strong>"We can just use <code>hash(key) % N</code> in production the same way it's taught conceptually."</strong> The transcript is explicit that naive modulo hashing causes near-total data movement on any node-count change; real systems use consistent hashing (or further refinements) specifically to avoid this.</li>
+            </ul>
+
+            <hr>
+
+            <h2 id="connections">12. Connections to Other Architecture Topics</h2>
+<pre><code>Replication + Specialized Services + Async Processing + Caching (all prior techniques)
+        │
+        ▼
+Database STILL the bottleneck (write load can't be distributed on a single RDBMS instance)
+        │
+        ▼
+Vertical Partitioning (= data consequence of Microservices) ──► bounded scalability ceiling (~N domains)
+        │
+        ▼
+Still overloaded within a single domain? ──► Horizontal (Database) Partitioning
+        │                                           │
+        │                                  ┌─────────┴─────────┐
+        │                                  ▼                   ▼
+        │                          Range Partitioning     Hash Partitioning
+        │                          (range query fit)      (point-lookup fit; needs
+        │                                                  consistent hashing for
+        │                                                  low-cost rebalancing)
+        │
+        ▼
+Routing: how does a client find the right node? ──► Client library / Router component / Any-node forwarding
+        │
+        ▼
+Full Horizontal Scalability Toolkit (recap, §2.5) ──► "Methods for horizontal scalability"
+        │
+        ▼
+(forward pointer) Load Balancing, Discovery Services, DNS, Auto-scaling — "Dealing with large scale systems"
+        │
+        ▼
+(forward pointer) Micro-Services Architecture module — SAGA/Compensating Transactions for the
+                    eventual-consistency trade-off flagged repeatedly in this document but not resolved here</code></pre>
+
+            <p><strong>Forward pointers (per syllabus mapping — not deep-dived here on purpose):</strong></p>
+            <ul>
+                <li>How load gets distributed across replicated/partitioned instances at the network level → <strong>Load balancing multiple instances / Discovery service and load balancing / HLB vs SLB / Layer-7 load balancers</strong></li>
+                <li>DNS-based and global routing strategies → <strong>DNS as load balancer / Global server load balancing / Global data replication</strong></li>
+                <li>Elastic capacity management → <strong>Auto scaling instances</strong></li>
+                <li>Formal resolution of the eventual-consistency trade-off repeatedly flagged in this document (cross-domain and cross-record transactions) → <strong>Transactions in Micro-Services / Compensating Transactions - SAGA Pattern</strong> (Micro-Services Architecture module)</li>
+                <li>Native horizontally-partitioned NoSQL systems referenced here (DynamoDB, Cassandra) get their own dedicated deep dives later in the Technology Stack module → <strong>Amazon DynamoDB / DynamoDB architecture, Cassandra / Cassandra features</strong></li>
+            </ul>
+        </div>
+    </main>
+
+</body>
+</html>
